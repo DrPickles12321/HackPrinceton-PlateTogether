@@ -1,7 +1,10 @@
-import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
+import { useEffect } from 'react'
+import { BrowserRouter, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { RealtimeProvider } from './contexts/RealtimeContext'
 import { NutritionalTargetsProvider } from './contexts/NutritionalTargetsContext'
+import { AuthProvider, useAuth } from './contexts/AuthContext'
 import Navbar from './components/Navbar'
+import LoginScreen from './components/LoginScreen'
 import Login from './pages/Login'
 import ParentView from './pages/ParentView'
 import DailyView from './pages/DailyView'
@@ -10,7 +13,39 @@ import StatsView from './pages/StatsView'
 import ClinicianView from './pages/ClinicianView'
 
 function AppLayout() {
+  const { user, role } = useAuth()
   const { pathname } = useLocation()
+  const navigate = useNavigate()
+
+  // Once Firebase confirms a logged-in user with a role, skip the demo login page
+  useEffect(() => {
+    if (user && role && pathname === '/') {
+      navigate(role === 'parent' ? '/parent/daily' : '/clinician', { replace: true })
+    }
+  }, [user, role, pathname, navigate])
+
+  // Still resolving auth state — show neutral spinner
+  if (user === undefined) {
+    return (
+      <div style={{
+        minHeight: '100svh', display: 'flex',
+        alignItems: 'center', justifyContent: 'center',
+        background: '#F5EFE6',
+      }}>
+        <div style={{
+          width: 38, height: 38, borderRadius: '50%',
+          border: '3px solid #E8735A', borderTopColor: 'transparent',
+          animation: 'spin 0.8s linear infinite',
+        }} />
+        <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
+      </div>
+    )
+  }
+
+  // Not authenticated — show Firebase login screen
+  if (!user) return <LoginScreen />
+
+  // Authenticated — show existing app unchanged
   return (
     <>
       {pathname !== '/' && <Navbar />}
@@ -31,12 +66,14 @@ function AppLayout() {
 
 export default function App() {
   return (
-    <NutritionalTargetsProvider>
-      <RealtimeProvider>
-        <BrowserRouter>
-          <AppLayout />
-        </BrowserRouter>
-      </RealtimeProvider>
-    </NutritionalTargetsProvider>
+    <AuthProvider>
+      <NutritionalTargetsProvider>
+        <RealtimeProvider>
+          <BrowserRouter>
+            <AppLayout />
+          </BrowserRouter>
+        </RealtimeProvider>
+      </NutritionalTargetsProvider>
+    </AuthProvider>
   )
 }

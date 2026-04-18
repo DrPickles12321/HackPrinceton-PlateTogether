@@ -1,4 +1,6 @@
 import { NavLink, useNavigate, useLocation } from 'react-router-dom'
+import { signOut } from 'firebase/auth'
+import { auth } from '../firebase'
 import { useRealtimeStatus } from '../contexts/RealtimeContext'
 import LiveIndicator from './LiveIndicator'
 
@@ -126,7 +128,7 @@ export default function Navbar() {
             </div>
 
             <button
-              onClick={() => { localStorage.removeItem('demoRole'); navigate('/', { replace: true }) }}
+              onClick={() => { localStorage.removeItem('demoRole'); signOut(auth) }}
               style={{
                 fontSize: 12, color: 'var(--text-light)', background: 'none',
                 border: 'none', cursor: 'pointer', padding: 0,
