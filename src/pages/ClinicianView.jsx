@@ -4,6 +4,7 @@ import { DEMO_FAMILY_ID } from '../lib/constants'
 import { useRealtime } from '../hooks/useRealtime'
 import { useRealtimeStatus } from '../contexts/RealtimeContext'
 import { useToast } from '../hooks/useToast'
+import { useFirebaseData } from '../contexts/FirebaseDataContext'
 import WeeklyGrid from '../components/WeeklyGrid'
 import WeeklyInsights from '../components/WeeklyInsights'
 import NotesPanel from '../components/NotesPanel'
@@ -16,18 +17,13 @@ export default function ClinicianView() {
   const [foodItems, setFoodItems] = useState([])
   const [mealLogs, setMealLogs] = useState([])
   const [notes, setNotes] = useState([])
-  const [parentNotes, setParentNotes] = useState(() => {
-    try { return Object.values(JSON.parse(localStorage.getItem('parentNotesByDate') || '{}')) }
-    catch { return [] }
-  })
-  const [parentMealItems, setParentMealItems] = useState(() => {
-    try { return JSON.parse(localStorage.getItem('parentMealItemsByDate') || '{}') }
-    catch { return {} }
-  })
-  const [clinicianNotesRead, setClinicianNotesRead] = useState(() => {
-    try { return JSON.parse(localStorage.getItem('clinicianNotesReadByParent') || '{}') }
-    catch { return {} }
-  })
+
+  const {
+    parentNotesArray: parentNotes,
+    allMealItems: parentMealItems,
+    clinicianNotesRead,
+    markParentNoteReadById,
+  } = useFirebaseData()
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [selectedDay, setSelectedDay] = useState(null)
@@ -43,23 +39,6 @@ export default function ClinicianView() {
     return () => setStatus('disconnected')
   }, [setStatus])
 
-  useEffect(() => {
-    function refreshParentData() {
-      try { setParentNotes(Object.values(JSON.parse(localStorage.getItem('parentNotesByDate') || '{}'))) }
-      catch {}
-      try { setParentMealItems(JSON.parse(localStorage.getItem('parentMealItemsByDate') || '{}')) }
-      catch {}
-      try { setClinicianNotesRead(JSON.parse(localStorage.getItem('clinicianNotesReadByParent') || '{}')) }
-      catch {}
-    }
-    function onVisibility() { if (!document.hidden) refreshParentData() }
-    window.addEventListener('storage', refreshParentData)
-    document.addEventListener('visibilitychange', onVisibility)
-    return () => {
-      window.removeEventListener('storage', refreshParentData)
-      document.removeEventListener('visibilitychange', onVisibility)
-    }
-  }, [])
 
   async function loadData() {
     setLoading(true)
@@ -134,12 +113,7 @@ export default function ClinicianView() {
   })
 
   function handleMarkNoteRead(noteId) {
-    const stored = JSON.parse(localStorage.getItem('parentNotesByDate') || '{}')
-    const date = Object.keys(stored).find(d => stored[d].id === noteId)
-    if (!date) return
-    stored[date] = { ...stored[date], read_at: new Date().toISOString() }
-    localStorage.setItem('parentNotesByDate', JSON.stringify(stored))
-    setParentNotes(Object.values(stored))
+    markParentNoteReadById(noteId)
   }
 
   async function handleDeleteNote(noteId) {

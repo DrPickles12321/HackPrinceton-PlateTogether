@@ -6,6 +6,7 @@ import FoodCardPreview from '../components/FoodCardPreview'
 import SupplementChecklist from '../components/SupplementChecklist'
 import { lookupNutrition } from '../lib/nutritionService'
 import { useNutritionalTargets } from '../contexts/NutritionalTargetsContext'
+import { useFirebaseData } from '../contexts/FirebaseDataContext'
 import { getWeekDates } from '../lib/constants'
 
 const DAYS = [
@@ -739,55 +740,36 @@ export default function DailyView() {
   const { mealSlots, foodItems, mealLogs, clinicianNotes = [], parentNotes = [], clinicianNotesRead = {}, mealStatuses = {}, savedClinicianNotes = [], weekOffset = 0, setWeekOffset, insertMealLog, saveParentNote, markClinicianNoteRead, saveClinicianNote, unsaveClinicianNote, clearAllSavedNotes, setMealStatus } = useOutletContext()
   const [selectedDay, setSelectedDay] = useState(getTodayKey)
   const [activeDrag, setActiveDrag] = useState(null)
-  const [supplementLog, setSupplementLog] = useState(() => {
-    try { return JSON.parse(window.localStorage.getItem('supplementLog') || '{}') }
-    catch { return {} }
-  })
-  const [allMealItems, setAllMealItems] = useState(() => {
-    try {
-      return JSON.parse(window.localStorage.getItem('parentMealItemsByDate') || '{}')
-    } catch { return {} }
-  })
+
+  const {
+    supplementLog, toggleSupplement,
+    allMealItems, setMealItems,
+    mealTimes: fbMealTimes, updateMealTime,
+  } = useFirebaseData()
 
   const weekDates = useMemo(() => getWeekDates(weekOffset), [weekOffset])
   const checkedSupplements = useMemo(() => new Set(supplementLog[weekDates[selectedDay]] || []), [supplementLog, weekDates, selectedDay])
 
   function handleToggleSupplement(nutrient) {
-    const date = weekDates[selectedDay]
-    setSupplementLog(prev => {
-      const existing = new Set(prev[date] || [])
-      if (existing.has(nutrient)) existing.delete(nutrient)
-      else existing.add(nutrient)
-      const next = { ...prev, [date]: Array.from(existing) }
-      window.localStorage.setItem('supplementLog', JSON.stringify(next))
-      return next
-    })
+    toggleSupplement(weekDates[selectedDay], nutrient)
   }
-  const [mealTimes, setMealTimes] = useState(() => {
-    try {
-      const stored = window.localStorage.getItem('parentDailyMealTimes')
-      return stored ? JSON.parse(stored) : DEFAULT_MEAL_TIMES
-    } catch { return DEFAULT_MEAL_TIMES }
-  })
+
+  const mealTimes = fbMealTimes
 
   const selectedDate = weekDates[selectedDay]
   const mealItems = allMealItems[selectedDate] || EMPTY_MEAL_ITEMS
 
   function setMealItemsForDay(updater) {
-    setAllMealItems(prev => {
-      const next = { ...prev, [selectedDate]: updater(prev[selectedDate] || EMPTY_MEAL_ITEMS) }
-      window.localStorage.setItem('parentMealItemsByDate', JSON.stringify(next))
-      return next
-    })
+    const current = allMealItems[selectedDate] || EMPTY_MEAL_ITEMS
+    const next = updater(current)
+    for (const mealType of Object.keys(next)) {
+      if (next[mealType] !== current[mealType]) {
+        setMealItems(selectedDate, mealType, next[mealType])
+      }
+    }
   }
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }))
-
-  function updateMealTime(mealType, value) {
-    const nextTimes = { ...mealTimes, [mealType]: value }
-    setMealTimes(nextTimes)
-    window.localStorage.setItem('parentDailyMealTimes', JSON.stringify(nextTimes))
-  }
 
   function getSlot(mealType) {
     return mealSlots.find(s => s.day === selectedDay && s.meal_type === mealType)

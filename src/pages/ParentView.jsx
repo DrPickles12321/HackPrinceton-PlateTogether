@@ -5,31 +5,30 @@ import { DEMO_FAMILY_ID } from '../lib/constants'
 import { useToast } from '../hooks/useToast'
 import { useRealtime } from '../hooks/useRealtime'
 import { useRealtimeStatus } from '../contexts/RealtimeContext'
+import { useFirebaseData } from '../contexts/FirebaseDataContext'
 
 export default function ParentView() {
   const [mealSlots, setMealSlots] = useState([])
   const [foodItems, setFoodItems] = useState([])
   const [mealLogs, setMealLogs] = useState([])
   const [clinicianNotes, setClinicianNotes] = useState([])
-  const [parentNotes, setParentNotes] = useState(() => {
-    try { return Object.values(JSON.parse(localStorage.getItem('parentNotesByDate') || '{}')) }
-    catch { return [] }
-  })
-  const [clinicianNotesRead, setClinicianNotesRead] = useState(() => {
-    try { return JSON.parse(localStorage.getItem('clinicianNotesReadByParent') || '{}') }
-    catch { return {} }
-  })
-  const [savedClinicianNotes, setSavedClinicianNotes] = useState(() => {
-    try { return JSON.parse(localStorage.getItem('savedClinicianNotes') || '[]') }
-    catch { return [] }
-  })
-  const [mealStatuses, setMealStatuses] = useState(() => {
-    try { return JSON.parse(localStorage.getItem('parentMealStatusesByDate') || '{}') }
-    catch { return {} }
-  })
   const [weekOffset, setWeekOffset] = useState(0)
   const { showToast } = useToast()
   const { setStatus } = useRealtimeStatus()
+
+  const {
+    allMealItems,
+    mealStatuses,
+    parentNotesArray: parentNotes,
+    saveParentNote,
+    clinicianNotesRead,
+    markClinicianNoteRead,
+    savedClinicianNotes,
+    saveClinicianNote,
+    unsaveClinicianNote,
+    clearAllSavedNotes,
+    setMealStatus,
+  } = useFirebaseData()
 
   useEffect(() => {
     document.title = 'My Week · Plate Together'
@@ -77,62 +76,6 @@ export default function ParentView() {
     onDelete: row => setClinicianNotes(c => c.filter(n => n.id !== row.id)),
   })
 
-  function setMealStatus(date, mealType, status) {
-    setMealStatuses(prev => {
-      const day = { ...(prev[date] || {}) }
-      if (day[mealType] === status) return prev
-      day[mealType] = status
-      const next = { ...prev, [date]: day }
-      localStorage.setItem('parentMealStatusesByDate', JSON.stringify(next))
-      return next
-    })
-  }
-
-  function markClinicianNoteRead(note) {
-    const stored = JSON.parse(localStorage.getItem('clinicianNotesReadByParent') || '{}')
-    const readAt = new Date().toISOString()
-    const noteDate = note.created_at?.slice(0, 10)
-    const next = {
-      ...stored,
-      [note.id]: { readAt, noteCreatedAt: note.created_at },
-      ['date:' + noteDate]: { noteId: note.id, readAt, noteCreatedAt: note.created_at },
-    }
-    localStorage.setItem('clinicianNotesReadByParent', JSON.stringify(next))
-    setClinicianNotesRead(next)
-  }
-
-  function saveClinicianNote(note) {
-    setSavedClinicianNotes(prev => {
-      if (prev.some(n => n.id === note.id)) return prev
-      const next = [...prev, { id: note.id, body: note.body, created_at: note.created_at, savedAt: new Date().toISOString() }]
-      localStorage.setItem('savedClinicianNotes', JSON.stringify(next))
-      return next
-    })
-  }
-
-  function unsaveClinicianNote(noteId) {
-    setSavedClinicianNotes(prev => {
-      const next = prev.filter(n => n.id !== noteId)
-      localStorage.setItem('savedClinicianNotes', JSON.stringify(next))
-      return next
-    })
-  }
-
-  function clearAllSavedNotes() {
-    localStorage.setItem('savedClinicianNotes', '[]')
-    setSavedClinicianNotes([])
-  }
-
-  function saveParentNote({ date, body, existingNoteId }) {
-    const stored = JSON.parse(localStorage.getItem('parentNotesByDate') || '{}')
-    const note = existingNoteId
-      ? { ...stored[date], body, read_at: null }
-      : { id: crypto.randomUUID(), date, body, read_at: null, created_at: new Date().toISOString() }
-    stored[date] = note
-    localStorage.setItem('parentNotesByDate', JSON.stringify(stored))
-    setParentNotes(Object.values(stored))
-  }
-
   async function updateMealSlot(slotId, assignedFoodId) {
     if (!slotId) throw new Error('Cannot update meal slot: slot id is required')
 
@@ -169,7 +112,7 @@ export default function ParentView() {
 
   return (
     <div style={{ width: '100%', padding: '16px 24px' }}>
-      <Outlet context={{ mealSlots, foodItems, mealLogs, clinicianNotes, parentNotes, clinicianNotesRead, mealStatuses, savedClinicianNotes, weekOffset, setWeekOffset, updateMealSlot, insertMealLog, saveParentNote, markClinicianNoteRead, saveClinicianNote, unsaveClinicianNote, clearAllSavedNotes, setMealStatus }} />
+      <Outlet context={{ mealSlots, foodItems, mealLogs, clinicianNotes, parentNotes, clinicianNotesRead, mealStatuses, savedClinicianNotes, allMealItems, weekOffset, setWeekOffset, updateMealSlot, insertMealLog, saveParentNote, markClinicianNoteRead, saveClinicianNote, unsaveClinicianNote, clearAllSavedNotes, setMealStatus }} />
     </div>
   )
 }

@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate, useLocation, useNavigate } from
 import { RealtimeProvider } from './contexts/RealtimeContext'
 import { NutritionalTargetsProvider } from './contexts/NutritionalTargetsContext'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
+import { FirebaseDataProvider } from './contexts/FirebaseDataContext'
 import Navbar from './components/Navbar'
 import LoginScreen from './components/LoginScreen'
 import Login from './pages/Login'
@@ -67,13 +68,15 @@ function AppLayout() {
 export default function App() {
   return (
     <AuthProvider>
-      <NutritionalTargetsProvider>
-        <RealtimeProvider>
-          <BrowserRouter>
-            <AppLayout />
-          </BrowserRouter>
-        </RealtimeProvider>
-      </NutritionalTargetsProvider>
+      <FirebaseDataProvider>
+        <NutritionalTargetsProvider>
+          <RealtimeProvider>
+            <BrowserRouter>
+              <AppLayout />
+            </BrowserRouter>
+          </RealtimeProvider>
+        </NutritionalTargetsProvider>
+      </FirebaseDataProvider>
     </AuthProvider>
   )
 }

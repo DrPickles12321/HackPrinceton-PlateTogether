@@ -23,16 +23,13 @@ const INSIGHT_STYLES = {
   notice:   { bg: 'var(--coral-light)', border: '#fecaca' },
 }
 
-function AIInsightsSection({ weekStatuses }) {
+function AIInsightsSection({ weekStatuses, allMealItems = {} }) {
   const [insights, setInsights] = useState(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
 
   function load() {
-    const allStored = (() => {
-      try { return JSON.parse(localStorage.getItem('parentMealItemsByDate') || '{}') }
-      catch { return {} }
-    })()
+    const allStored = allMealItems
     const weekDates = new Set(getThisWeekIsoDates())
     const thisWeekItems = Object.fromEntries(
       Object.entries(allStored).filter(([date]) => weekDates.has(date))
@@ -109,7 +106,7 @@ function AIInsightsSection({ weekStatuses }) {
 }
 
 export default function StatsView() {
-  const { mealSlots, foodItems, mealLogs, mealStatuses = {} } = useOutletContext()
+  const { mealSlots, foodItems, mealLogs, mealStatuses = {}, allMealItems = {} } = useOutletContext()
 
   const thisWeekStatuses = useMemo(() => {
     const weekDates = getThisWeekIsoDates()
@@ -124,10 +121,7 @@ export default function StatsView() {
     const difficult = thisWeekStatuses.filter(s => s.status === 'difficult').length
     const refused   = thisWeekStatuses.filter(s => s.status === 'refused').length
 
-    const allItems = (() => {
-      try { return JSON.parse(localStorage.getItem('parentMealItemsByDate') || '{}') }
-      catch { return {} }
-    })()
+    const allItems = allMealItems
     const weekDates = getThisWeekIsoDates()
     const challengeAttempts = thisWeekStatuses.filter(({ date, mealType }) => {
       const items = (allItems[date] || {})[mealType] || []
@@ -157,7 +151,7 @@ export default function StatsView() {
 
     const successRate = total > 0 ? Math.round((okay / total) * 100) : 0
     return { total, okay, difficult, refused, ringPct, challengeAttempts, challengeSlots: challengeMeals, hardestMeal, hardestPct, successRate }
-  }, [thisWeekStatuses])
+  }, [thisWeekStatuses, allMealItems])
 
   const circumference = 2 * Math.PI * 38
 
@@ -329,7 +323,7 @@ export default function StatsView() {
           ))}
         </div>
 
-        <AIInsightsSection weekStatuses={thisWeekStatuses} />
+        <AIInsightsSection weekStatuses={thisWeekStatuses} allMealItems={allMealItems} />
       </div>
     </div>
   )

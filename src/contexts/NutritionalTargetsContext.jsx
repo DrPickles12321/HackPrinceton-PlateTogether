@@ -1,43 +1,14 @@
-import { createContext, useContext, useState } from 'react'
-
-const STORAGE_KEY = 'nutritionalTargets'
-
-const DEFAULT_TARGETS = {
-  protein: 95,
-  carbs: 145,
-  fruitsVeggies: 225,
-}
-
-function loadTargets() {
-  try {
-    const stored = localStorage.getItem(STORAGE_KEY)
-    if (!stored) return DEFAULT_TARGETS
-    const parsed = JSON.parse(stored)
-    // migrate old per-meal format if present
-    if (parsed.breakfast) return DEFAULT_TARGETS
-    return parsed
-  } catch {
-    return DEFAULT_TARGETS
-  }
-}
+import { createContext, useContext } from 'react'
+import { useFirebaseData } from './FirebaseDataContext'
 
 const NutritionalTargetsContext = createContext(null)
 
+// Thin wrapper — actual storage lives in FirebaseDataContext
 export function NutritionalTargetsProvider({ children }) {
-  const [targets, setTargets] = useState(loadTargets)
-
-  function saveTargets(next) {
-    setTargets(next)
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(next))
-  }
-
-  return (
-    <NutritionalTargetsContext.Provider value={{ targets, saveTargets }}>
-      {children}
-    </NutritionalTargetsContext.Provider>
-  )
+  return <>{children}</>
 }
 
 export function useNutritionalTargets() {
-  return useContext(NutritionalTargetsContext)
+  const { nutritionalTargets: targets, saveNutritionalTargets: saveTargets } = useFirebaseData()
+  return { targets, saveTargets }
 }

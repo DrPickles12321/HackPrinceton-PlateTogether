@@ -158,7 +158,7 @@ function DayPopover({ day, macros, style, popoverRef }) {
 // ─── Main view ────────────────────────────────────────────────────────────────
 
 export default function WeeklyView() {
-  const { mealSlots, foodItems, mealLogs, weekOffset = 0, setWeekOffset } = useOutletContext()
+  const { mealSlots, foodItems, mealLogs, allMealItems = {}, weekOffset = 0, setWeekOffset } = useOutletContext()
   const [openDay, setOpenDay]         = useState(null)
   const [popoverPos, setPopoverPos]   = useState({ top: 0, left: 0 })
   const popoverRef  = useRef(null)
@@ -187,7 +187,7 @@ export default function WeeklyView() {
 
   // ── compute macros for a day ──
   const macrosByDay = useMemo(() => {
-    const allStored = (() => { try { return JSON.parse(localStorage.getItem('parentMealItemsByDate') || '{}') } catch { return {} } })()
+    const allStored = allMealItems
     const result = {}
     for (const day of DAYS) {
       const dateIso = weekDates[day.key]
@@ -206,7 +206,7 @@ export default function WeeklyView() {
       }
     }
     return result
-  }, [weekDates, mealSlots, foodItems])
+  }, [weekDates, mealSlots, foodItems, allMealItems])
 
   // ── day header click → compute viewport-safe position ──
   const handleDayClick = useCallback((dayKey) => {
