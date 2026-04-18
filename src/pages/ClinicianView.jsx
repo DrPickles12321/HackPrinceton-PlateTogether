@@ -9,7 +9,6 @@ import WeeklyInsights from '../components/WeeklyInsights'
 import NotesPanel from '../components/NotesPanel'
 import DailyNutritionSummary from '../components/nutrition/DailyNutritionSummary'
 import WeeklyGoals from '../components/WeeklyGoals'
-import SupplementChecklist from '../components/SupplementChecklist'
 
 export default function ClinicianView() {
   const [mealSlots, setMealSlots] = useState([])
@@ -162,7 +161,6 @@ export default function ClinicianView() {
             onMarkRead={() => {}}
             onDelete={handleDeleteNote}
           />
-          <SupplementChecklist mealSlots={mealSlots} foodItems={foodItems} />
         </>
       )}
 

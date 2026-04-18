@@ -3,6 +3,7 @@ import { useOutletContext } from 'react-router-dom'
 import { DndContext, DragOverlay, PointerSensor, useSensor, useSensors, useDroppable } from '@dnd-kit/core'
 import FoodSidebar from '../components/FoodSidebar'
 import FoodCardPreview from '../components/FoodCardPreview'
+import SupplementChecklist from '../components/SupplementChecklist'
 
 const DAYS = [
   { key: 'mon', label: 'Mon' },
@@ -318,6 +319,10 @@ export default function DailyView() {
                 <span style={{ fontSize: 16, fontWeight: 700, color: s.color }}>{s.count}</span>
               </div>
             ))}
+          </div>
+
+          <div style={{ marginTop: 22 }}>
+            <SupplementChecklist mealSlots={mealSlots} foodItems={foodItems} />
           </div>
         </aside>
       </div>
