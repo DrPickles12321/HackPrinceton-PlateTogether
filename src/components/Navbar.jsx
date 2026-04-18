@@ -47,24 +47,39 @@ export default function Navbar() {
               background: 'var(--surface-warm)', padding: '3px',
               borderRadius: 13, border: '1.5px solid var(--border)',
             }}>
-              {PARENT_TABS.map(tab => (
-                <NavLink
-                  key={tab.to}
-                  to={tab.to}
-                  style={({ isActive }) => ({
-                    padding: '6px 18px', borderRadius: 10,
-                    fontSize: 13, fontWeight: 500,
-                    textDecoration: 'none', transition: 'all 0.15s',
-                    color: isActive ? 'white' : 'var(--text-mid)',
-                    background: isActive
-                      ? 'linear-gradient(135deg, var(--coral) 0%, var(--pink) 100%)'
-                      : 'transparent',
-                    boxShadow: isActive ? '0 2px 8px rgba(184,85,53,0.28)' : 'none',
-                  })}
-                >
-                  {tab.label}
-                </NavLink>
-              ))}
+              {PARENT_TABS.map(tab => {
+                const isActive = pathname === tab.to || pathname.startsWith(tab.to + '/')
+                return (
+                  <NavLink
+                    key={tab.to}
+                    to={tab.to}
+                    style={{
+                      padding: '6px 18px', borderRadius: 10,
+                      fontSize: 13, fontWeight: 500,
+                      textDecoration: 'none', transition: 'all 0.15s',
+                      color: isActive ? 'white' : 'var(--text-mid)',
+                      background: isActive
+                        ? 'linear-gradient(135deg, var(--coral) 0%, var(--pink) 100%)'
+                        : 'transparent',
+                      boxShadow: isActive ? '0 2px 8px rgba(184,85,53,0.28)' : 'none',
+                    }}
+                    onMouseEnter={e => {
+                      if (!isActive) {
+                        e.currentTarget.style.background = 'rgba(184,85,53,0.10)'
+                        e.currentTarget.style.color = 'var(--text-dark)'
+                      }
+                    }}
+                    onMouseLeave={e => {
+                      if (!isActive) {
+                        e.currentTarget.style.background = 'transparent'
+                        e.currentTarget.style.color = 'var(--text-mid)'
+                      }
+                    }}
+                  >
+                    {tab.label}
+                  </NavLink>
+                )
+              })}
             </div>
           )}
 
@@ -80,6 +95,8 @@ export default function Navbar() {
             }}>
               <button
                 onClick={() => navigate('/parent/daily')}
+                onMouseEnter={e => { if (!isParent) { e.currentTarget.style.background = 'rgba(184,85,53,0.10)'; e.currentTarget.style.color = 'var(--text-dark)' } }}
+                onMouseLeave={e => { if (!isParent) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-light)' } }}
                 style={{
                   padding: '5px 13px', borderRadius: 10, border: 'none', cursor: 'pointer',
                   fontSize: 12, fontWeight: 500, transition: 'all 0.15s',
@@ -93,6 +110,8 @@ export default function Navbar() {
               >Parent</button>
               <button
                 onClick={() => navigate('/clinician')}
+                onMouseEnter={e => { if (!isClinician) { e.currentTarget.style.background = 'rgba(72,122,103,0.10)'; e.currentTarget.style.color = 'var(--text-dark)' } }}
+                onMouseLeave={e => { if (!isClinician) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-light)' } }}
                 style={{
                   padding: '5px 13px', borderRadius: 10, border: 'none', cursor: 'pointer',
                   fontSize: 12, fontWeight: 500, transition: 'all 0.15s',

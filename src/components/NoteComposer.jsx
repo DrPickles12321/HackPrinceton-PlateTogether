@@ -29,30 +29,59 @@ export default function NoteComposer({ onSave, existingNote }) {
   }
 
   return (
-    <div className="space-y-2">
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
       <textarea
         value={body}
         onChange={e => { setBody(e.target.value); setSaveStatus('idle') }}
         placeholder="Write a note for today..."
         rows={4}
         maxLength={1000}
-        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400 resize-none"
+        style={{
+          width: '100%',
+          border: 'none',
+          background: 'transparent',
+          resize: 'none',
+          fontSize: 14,
+          color: 'var(--text-dark)',
+          lineHeight: '28px',
+          outline: 'none',
+          fontFamily: "'Outfit', sans-serif",
+          padding: 0,
+        }}
       />
-      <div className="flex items-center justify-between">
-        <span className="text-xs text-gray-400">{body.length} / 1000</span>
-        <div className="flex items-center gap-3">
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <span style={{ fontSize: 11, color: 'var(--text-light)' }}>{body.length} / 1000</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           {saveStatus === 'saved' && !isDirty && (
-            <span className="text-xs text-green-600">Saved</span>
+            <span style={{ fontSize: 11, color: '#487A67', fontWeight: 500 }}>✓ Saved</span>
           )}
           {saveStatus === 'error' && (
-            <span className="text-xs text-red-500">Failed to save</span>
+            <span style={{ fontSize: 11, color: '#B85535', fontWeight: 500 }}>Failed to save</span>
           )}
           <button
             onClick={handleSave}
             disabled={body.trim().length < 1 || isSaving || !isDirty}
-            className="bg-purple-600 text-white text-xs font-medium px-3 py-1.5 rounded-lg hover:bg-purple-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            style={{
+              padding: '5px 14px',
+              borderRadius: 20,
+              border: 'none',
+              cursor: body.trim().length < 1 || isSaving || !isDirty ? 'not-allowed' : 'pointer',
+              fontSize: 12,
+              fontWeight: 600,
+              fontFamily: "'Outfit', sans-serif",
+              transition: 'all 0.15s',
+              background: body.trim().length < 1 || isSaving || !isDirty
+                ? 'rgba(184,85,53,0.15)'
+                : 'linear-gradient(135deg, var(--coral) 0%, var(--pink) 100%)',
+              color: body.trim().length < 1 || isSaving || !isDirty
+                ? 'var(--text-light)'
+                : 'white',
+              boxShadow: body.trim().length < 1 || isSaving || !isDirty
+                ? 'none'
+                : '0 2px 8px rgba(184,85,53,0.3)',
+            }}
           >
-            {isSaving ? 'Saving...' : existingNote ? 'Update note' : 'Save note'}
+            {isSaving ? 'Saving…' : existingNote ? 'Update note' : 'Save note'}
           </button>
         </div>
       </div>
