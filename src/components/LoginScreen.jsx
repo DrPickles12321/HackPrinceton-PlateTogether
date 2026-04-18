@@ -5,27 +5,31 @@ import {
 } from 'firebase/auth'
 import { ref, set } from 'firebase/database'
 import { auth, db } from '../firebase'
+import { useAuth } from '../contexts/AuthContext'
 
 export default function LoginScreen() {
-  const [mode, setMode]       = useState('signin')   // 'signin' | 'register'
-  const [role, setRole]       = useState(null)        // 'parent' | 'clinician'
-  const [email, setEmail]     = useState('')
+  const { loginError, clearLoginError, setPendingRole } = useAuth()
+  const [mode, setMode]         = useState('signin')
+  const [role, setRole]         = useState(null)
+  const [email, setEmail]       = useState('')
   const [password, setPassword] = useState('')
-  const [error, setError]     = useState('')
-  const [loading, setLoading] = useState(false)
+  const [error, setError]       = useState('')
+  const [loading, setLoading]   = useState(false)
+
+  const displayError = loginError || error
 
   async function handleSubmit(e) {
     e.preventDefault()
     if (!role) { setError('Please select a role first.'); return }
+    clearLoginError()
     setError('')
     setLoading(true)
     try {
-      let cred
       if (mode === 'signin') {
-        cred = await signInWithEmailAndPassword(auth, email, password)
-        await set(ref(db, `users/${cred.user.uid}/role`), role)
+        setPendingRole(role)
+        await signInWithEmailAndPassword(auth, email, password)
       } else {
-        cred = await createUserWithEmailAndPassword(auth, email, password)
+        const cred = await createUserWithEmailAndPassword(auth, email, password)
         const { uid } = cred.user
         const writes = {
           [`users/${uid}/role`]:  role,
@@ -45,11 +49,6 @@ export default function LoginScreen() {
     } finally {
       setLoading(false)
     }
-  }
-
-  function generateFamilyCode() {
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
-    return Array.from({ length: 6 }, () => chars[Math.floor(Math.random() * chars.length)]).join('')
   }
 
   return (
@@ -166,14 +165,12 @@ export default function LoginScreen() {
               <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-mid)', letterSpacing: '0.5px', textTransform: 'uppercase', display: 'block', marginBottom: 8 }}>
                 I am a
               </label>
-              <div style={{
-                display: 'flex', gap: 10,
-              }}>
+              <div style={{ display: 'flex', gap: 10 }}>
                 {['parent', 'clinician'].map(r => (
                   <button
                     key={r}
                     type="button"
-                    onClick={() => setRole(r)}
+                    onClick={() => { setRole(r); clearLoginError(); setError('') }}
                     style={{
                       flex: 1, padding: '10px 0', borderRadius: 12, border: '1.5px solid',
                       cursor: 'pointer', fontSize: 14, fontWeight: 600,
@@ -246,13 +243,17 @@ export default function LoginScreen() {
             </div>
 
             {/* Error */}
-            {error && (
+            {displayError && (
               <div style={{
-                background: '#FEF0EE', border: '1px solid #F5C4B4',
-                borderRadius: 10, padding: '10px 14px',
+                background: '#FEF0EE', border: '1.5px solid #F5C4B4',
+                borderRadius: 10, padding: '12px 14px',
                 fontSize: 13, color: 'var(--coral)', lineHeight: 1.5,
+                fontWeight: 500,
+                boxShadow: '0 2px 8px rgba(184,85,53,0.12)',
+                display: 'flex', alignItems: 'flex-start', gap: 8,
               }}>
-                {error}
+                <span style={{ flexShrink: 0, fontSize: 15 }}>⚠️</span>
+                {displayError}
               </div>
             )}
 
@@ -284,7 +285,7 @@ export default function LoginScreen() {
             {mode === 'signin' ? "Don't have an account? " : 'Already have an account? '}
             <button
               type="button"
-              onClick={() => { setMode(mode === 'signin' ? 'register' : 'signin'); setError('') }}
+              onClick={() => { setMode(mode === 'signin' ? 'register' : 'signin'); setError(''); clearLoginError() }}
               style={{
                 background: 'none', border: 'none', cursor: 'pointer',
                 color: 'var(--coral)', fontWeight: 600, fontSize: 13,
@@ -298,6 +299,10 @@ export default function LoginScreen() {
       </div>
     </div>
   )
+}
+
+function generateFamilyCode() {
+  return Math.random().toString(36).substring(2, 8).toUpperCase()
 }
 
 function friendlyError(code) {

@@ -4,10 +4,15 @@ import { supabase } from './supabaseClient.js'
 import { buildWeekSummary, getTodayDinner } from './mealSummary.js'
 import { reactiveResponse, dinnerWindowMessage, appointmentPrepMessage } from './claudeClient.js'
 
-const THREAD_ID = process.env.SPECTRUM_THREAD_ID
-const SPACE_TYPE = process.env.SPECTRUM_SPACE_TYPE || 'group'
-const DINNER_HOUR = parseInt(process.env.DINNER_WINDOW_HOUR || '20', 10)
+const THREAD_ID    = process.env.SPECTRUM_THREAD_ID
+const SPACE_TYPE   = process.env.SPECTRUM_SPACE_TYPE || 'direct'
+const DINNER_HOUR  = parseInt(process.env.DINNER_WINDOW_HOUR   || '20', 10)
 const DINNER_MINUTE = parseInt(process.env.DINNER_WINDOW_MINUTE || '30', 10)
+
+if (!THREAD_ID) {
+  console.error('Missing required env var: SPECTRUM_THREAD_ID')
+  process.exit(1)
+}
 
 // In-memory thread history (last 20 messages)
 const threadHistory = []
@@ -42,7 +47,7 @@ function startDinnerTimer(spectrum) {
     } catch (err) {
       console.error('[dinner timer] error:', err)
     }
-  }, 15 * 60 * 1000) // every 15 minutes
+  }, 15 * 60 * 1000)
 }
 
 // ── Appointment prep timer ─────────────────────────────────────────────────
@@ -59,7 +64,7 @@ function startAppointmentTimer(spectrum) {
         .lte('scheduled_at', soon.toISOString())
         .eq('prep_sent', false)
 
-      if (error) throw error
+      if (error) return // appointments table may not exist yet
 
       const weekSummary = await buildWeekSummary(supabase)
       for (const appt of data || []) {
@@ -80,24 +85,19 @@ async function main() {
   const spectrum = await Spectrum({
     projectId: process.env.SPECTRUM_PROJECT_ID,
     projectSecret: process.env.SPECTRUM_PROJECT_SECRET,
-    providers: [imessage({ local: false })],
+    providers: [imessage.config()],
   })
-  console.log('Connected. Listening for messages on thread:', THREAD_ID)
+  console.log('Connected. Listening on thread:', THREAD_ID)
 
   startDinnerTimer(spectrum)
   startAppointmentTimer(spectrum)
 
   for await (const [space, message] of spectrum.messages) {
-    // Only handle messages from our configured thread
-    if (space.id !== THREAD_ID) continue
+    console.log('[incoming] space.id:', space.id, '| THREAD_ID:', THREAD_ID, '| match:', space.id === THREAD_ID)
 
-    const sender = message.user?.id || 'unknown'
-    // Spectrum's message shape: try .text first, then .content[0].text
-    const msgText = message.text || message.content?.[0]?.text || ''
-    if (!msgText.trim()) {
-      console.log('[message] received non-text message, raw:', JSON.stringify(message))
-      continue
-    }
+    const sender = message.sender?.id || 'unknown'
+    const msgText = message.content?.[0]?.text || message.text || ''
+    if (!msgText.trim()) continue
 
     pushHistory(sender, msgText)
     console.log(`[message] ${sender}: ${msgText}`)
