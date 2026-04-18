@@ -1,6 +1,19 @@
 import { useState, useEffect } from 'react'
 import Modal from './Modal'
 import MealNutritionPanel from './MealNutritionPanel'
+import { supabase } from '../lib/supabase'
+
+const DAY_TO_OFFSET = { mon: 0, tue: 1, wed: 2, thu: 3, fri: 4, sat: 5, sun: 6 }
+
+function slotDayToISODate(dayKey) {
+  const today = new Date()
+  const dow = today.getDay()
+  const mondayOffset = dow === 0 ? -6 : 1 - dow
+  const monday = new Date(today)
+  monday.setDate(today.getDate() + mondayOffset)
+  monday.setDate(monday.getDate() + (DAY_TO_OFFSET[dayKey] ?? 0))
+  return monday.toISOString().split('T')[0]
+}
 
 const DAY_LABELS = {
   mon: 'Monday', tue: 'Tuesday', wed: 'Wednesday', thu: 'Thursday',
@@ -27,6 +40,17 @@ export default function MealLogModal({ isOpen, onClose, slot, foodName, foodCate
     setIsSubmitting(true)
     try {
       await onSubmit({ slotId: slot.id, status, note: note.trim() || null })
+
+      // Sync to meal_events for the iMessage agent
+      const date = slotDayToISODate(slot.day)
+      const foodItems = foodName ? [{ name: foodName, category: foodCategory || 'familiar' }] : []
+      await supabase.from('meal_events').insert({
+        date,
+        meal_type: slot.meal_type,
+        status,
+        food_items: foodItems,
+      })
+
       setStatus(null); setNote(''); onClose()
     } catch (err) {
       console.error('Failed to save meal log:', err)
