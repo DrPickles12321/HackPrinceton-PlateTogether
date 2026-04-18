@@ -9,11 +9,13 @@ import FoodSidebar from '../components/FoodSidebar'
 import WeeklyGrid from '../components/WeeklyGrid'
 import MealLogModal from '../components/MealLogModal'
 import FoodCardPreview from '../components/FoodCardPreview'
+import NotesPanel from '../components/NotesPanel'
 
 export default function ParentView() {
   const [mealSlots, setMealSlots] = useState([])
   const [foodItems, setFoodItems] = useState([])
   const [mealLogs, setMealLogs] = useState([])
+  const [notes, setNotes] = useState([])
   const [loggingSlot, setLoggingSlot] = useState(null)
   const [activeDrag, setActiveDrag] = useState(null)
   const { showToast } = useToast()
@@ -29,6 +31,9 @@ export default function ParentView() {
       .then(({ data }) => { if (data) setFoodItems(data) })
     supabase.from('meal_logs').select('*')
       .then(({ data }) => { if (data) setMealLogs(data) })
+    supabase.from('clinician_notes').select('*').eq('family_id', DEMO_FAMILY_ID)
+      .order('created_at', { ascending: false })
+      .then(({ data }) => { if (data) setNotes(data) })
     return () => setStatus('disconnected')
   }, [setStatus])
 
@@ -43,6 +48,14 @@ export default function ParentView() {
     }),
     onDelete: row => setMealSlots(c => c.filter(s => s.id !== row.id)),
     onStatusChange: setStatus,
+  })
+
+  useRealtime({
+    table: 'clinician_notes',
+    familyId: DEMO_FAMILY_ID,
+    onInsert: row => setNotes(c => [row, ...c]),
+    onUpdate: row => setNotes(c => c.map(n => n.id === row.id ? row : n)),
+    onDelete: row => setNotes(c => c.filter(n => n.id !== row.id)),
   })
 
   useRealtime({
@@ -93,6 +106,11 @@ export default function ParentView() {
     showToast('Meal logged!', 'success')
   }
 
+  async function handleMarkRead(noteId) {
+    setNotes(c => c.map(n => n.id === noteId ? { ...n, is_read: true } : n))
+    await supabase.from('clinician_notes').update({ is_read: true }).eq('id', noteId)
+  }
+
   function getFoodById(foodId) {
     return foodItems.find(f => f.id === foodId) || null
   }
@@ -135,6 +153,17 @@ export default function ParentView() {
         foodName={getFoodById(loggingSlot?.assigned_food_id)?.name || ''}
         onSubmit={insertMealLog}
       />
+
+      <div className="mt-8">
+        <NotesPanel
+          notes={notes}
+          mealSlots={mealSlots}
+          foodItems={foodItems}
+          mode="parent"
+          onSend={() => {}}
+          onMarkRead={handleMarkRead}
+        />
+      </div>
 
       <footer className="text-xs text-gray-500 text-center py-6 mt-8 border-t">
         This tool supports meal planning between families and their care team. It is not a substitute for medical advice, diagnosis, or treatment. If you're in crisis, contact your treatment team or a helpline in your region.

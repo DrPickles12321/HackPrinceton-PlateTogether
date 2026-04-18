@@ -1,4 +1,3 @@
-import { Fragment } from 'react'
 import { useDroppable } from '@dnd-kit/core'
 
 const DAYS = [
@@ -12,15 +11,28 @@ const DAYS = [
 ]
 
 const MEAL_TYPES = [
-  { key: 'breakfast', label: 'Breakfast', icon: '☀️' },
-  { key: 'lunch',     label: 'Lunch',     icon: '🥗' },
-  { key: 'dinner',    label: 'Dinner',    icon: '🌙' },
-  { key: 'snack',     label: 'Snack',     icon: '🍎' },
+  { key: 'breakfast', label: 'Breakfast' },
+  { key: 'lunch',     label: 'Lunch' },
+  { key: 'dinner',    label: 'Dinner' },
+  { key: 'snack',     label: 'Snack' },
 ]
 
 const DAY_LABELS_FULL = { mon: 'Monday', tue: 'Tuesday', wed: 'Wednesday', thu: 'Thursday', fri: 'Friday', sat: 'Saturday', sun: 'Sunday' }
 const SLOT_BASE = 'border rounded-lg p-2 min-h-[80px] transition-colors duration-150 relative'
 const STATUS_DOT = { okay: 'bg-green-500', difficult: 'bg-yellow-500', refused: 'bg-red-500' }
+const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+
+function getWeekDates() {
+  const today = new Date()
+  const day = today.getDay()
+  const monday = new Date(today)
+  monday.setDate(today.getDate() - (day === 0 ? 6 : day - 1))
+  return Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(monday)
+    d.setDate(monday.getDate() + i)
+    return d
+  })
+}
 
 function StatusBadge({ log }) {
   if (!log) return null
@@ -82,6 +94,8 @@ function ClinicianMealSlot({ slot, foodName, latestLog, isWeekend }) {
 }
 
 export default function WeeklyGrid({ mealSlots, foodItems, mode = 'parent', onSlotClick, latestLogBySlot = {} }) {
+  const weekDates = getWeekDates()
+
   function getSlot(day, mealType) {
     return mealSlots.find(s => s.day === day && s.meal_type === mealType)
       || { id: null, day, meal_type: mealType, assigned_food_id: null }
@@ -95,22 +109,26 @@ export default function WeeklyGrid({ mealSlots, foodItems, mode = 'parent', onSl
     <div className="flex-1 overflow-auto p-4">
       <div className="overflow-x-auto -mx-4 px-4 md:mx-0 md:px-0">
         <div className="min-w-[720px]">
-          {/* Sticky header */}
+          {/* Sticky day header with dates */}
           <div className="grid grid-cols-[100px_repeat(7,1fr)] gap-2 mb-2 sticky top-[60px] bg-white z-10 pb-2">
             <div />
-            {DAYS.map(day => (
-              <div key={day.key} className={`text-center text-xs font-semibold uppercase tracking-wide py-2 rounded ${day.isWeekend ? 'bg-blue-50 text-blue-900' : 'text-gray-600'}`}>
-                {day.label}
-              </div>
-            ))}
+            {DAYS.map((day, i) => {
+              const d = weekDates[i]
+              const dateStr = `${MONTHS[d.getMonth()]} ${d.getDate()}`
+              return (
+                <div key={day.key} className={`text-center py-2 rounded ${day.isWeekend ? 'bg-blue-50 text-blue-900' : 'text-gray-600'}`}>
+                  <div className="text-xs font-semibold uppercase tracking-wide">{day.label}</div>
+                  <div className="text-xs text-gray-400 mt-0.5">{dateStr}</div>
+                </div>
+              )
+            })}
           </div>
 
           {/* Meal rows */}
           {MEAL_TYPES.map(meal => (
             <div key={meal.key} className="grid grid-cols-[100px_repeat(7,1fr)] gap-2 mb-2">
-              <div className="flex items-center gap-1.5 text-sm font-medium text-gray-700">
-                <span aria-hidden="true">{meal.icon}</span>
-                <span>{meal.label}</span>
+              <div className="flex items-center text-sm font-medium text-gray-700">
+                {meal.label}
               </div>
               {DAYS.map(day => {
                 const slot = getSlot(day.key, meal.key)

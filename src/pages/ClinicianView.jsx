@@ -3,16 +3,20 @@ import { supabase } from '../lib/supabase'
 import { DEMO_FAMILY_ID } from '../lib/constants'
 import { useRealtime } from '../hooks/useRealtime'
 import { useRealtimeStatus } from '../contexts/RealtimeContext'
+import { useToast } from '../hooks/useToast'
 import WeeklyGrid from '../components/WeeklyGrid'
 import WeeklyInsights from '../components/WeeklyInsights'
+import NotesPanel from '../components/NotesPanel'
 
 export default function ClinicianView() {
   const [mealSlots, setMealSlots] = useState([])
   const [foodItems, setFoodItems] = useState([])
   const [mealLogs, setMealLogs] = useState([])
+  const [notes, setNotes] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const { setStatus } = useRealtimeStatus()
+  const { showToast } = useToast()
 
   useEffect(() => {
     document.title = 'Dashboard · Plate Together'
@@ -24,20 +28,24 @@ export default function ClinicianView() {
     setLoading(true)
     setError(null)
     try {
-      const [slotsRes, foodsRes, logsRes] = await Promise.all([
+      const [slotsRes, foodsRes, logsRes, notesRes] = await Promise.all([
         supabase.from('meal_slots').select('*').eq('family_id', DEMO_FAMILY_ID),
         supabase.from('food_items').select('*').eq('family_id', DEMO_FAMILY_ID),
         supabase.from('meal_logs')
           .select('*, meal_slots!inner(family_id)')
           .eq('meal_slots.family_id', DEMO_FAMILY_ID)
           .order('logged_at', { ascending: false }),
+        supabase.from('clinician_notes').select('*').eq('family_id', DEMO_FAMILY_ID)
+          .order('created_at', { ascending: false }),
       ])
       if (slotsRes.error) throw slotsRes.error
       if (foodsRes.error) throw foodsRes.error
       if (logsRes.error) throw logsRes.error
+      if (notesRes.error) throw notesRes.error
       setMealSlots(slotsRes.data || [])
       setFoodItems(foodsRes.data || [])
       setMealLogs(logsRes.data || [])
+      setNotes(notesRes.data || [])
     } catch (err) {
       console.error('Failed to load clinician data:', err)
       setError('Could not load the board. Please refresh.')
@@ -80,6 +88,27 @@ export default function ClinicianView() {
     },
   })
 
+  useRealtime({
+    table: 'clinician_notes',
+    familyId: DEMO_FAMILY_ID,
+    onInsert: row => setNotes(c => [row, ...c]),
+    onUpdate: row => setNotes(c => c.map(n => n.id === row.id ? row : n)),
+    onDelete: row => setNotes(c => c.filter(n => n.id !== row.id)),
+  })
+
+  async function handleSendNote({ body, slotId }) {
+    const { data, error } = await supabase
+      .from('clinician_notes')
+      .insert({ family_id: DEMO_FAMILY_ID, body, slot_id: slotId })
+      .select().single()
+    if (error) {
+      showToast('Could not send note.', 'error')
+      throw error
+    }
+    setNotes(c => [data, ...c])
+    showToast('Note sent!', 'success')
+  }
+
   const latestLogBySlot = useMemo(() => {
     const map = {}
     for (const log of mealLogs) {
@@ -108,6 +137,14 @@ export default function ClinicianView() {
         <>
           <WeeklyGrid mealSlots={mealSlots} foodItems={foodItems} mode="clinician" latestLogBySlot={latestLogBySlot} />
           <WeeklyInsights mealLogs={mealLogs} foodItems={foodItems} mealSlots={mealSlots} />
+          <NotesPanel
+            notes={notes}
+            mealSlots={mealSlots}
+            foodItems={foodItems}
+            mode="clinician"
+            onSend={handleSendNote}
+            onMarkRead={() => {}}
+          />
         </>
       )}
     </div>
