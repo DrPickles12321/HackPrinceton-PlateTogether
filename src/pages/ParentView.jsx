@@ -5,6 +5,7 @@ import { DEMO_FAMILY_ID } from '../lib/constants'
 import { useToast } from '../hooks/useToast'
 import { useRealtime } from '../hooks/useRealtime'
 import { useRealtimeStatus } from '../contexts/RealtimeContext'
+import SupplementChecklist from '../components/SupplementChecklist'
 
 export default function ParentView() {
   const [mealSlots, setMealSlots] = useState([])
@@ -84,7 +85,14 @@ export default function ParentView() {
 
   return (
     <div className="max-w-7xl mx-auto p-4 md:p-6">
-      <Outlet context={{ mealSlots, foodItems, mealLogs, updateMealSlot, insertMealLog }} />
+      <div className="grid grid-cols-1 xl:grid-cols-[1fr_280px] gap-4 xl:gap-6">
+        <main>
+          <Outlet context={{ mealSlots, foodItems, mealLogs, updateMealSlot, insertMealLog }} />
+        </main>
+        <aside className="xl:sticky xl:top-[72px] xl:self-start xl:max-h-[calc(100vh-88px)] xl:overflow-y-auto">
+          <SupplementChecklist mealSlots={mealSlots} foodItems={foodItems} />
+        </aside>
+      </div>
     </div>
   )
 }
