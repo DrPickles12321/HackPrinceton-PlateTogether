@@ -1,10 +1,10 @@
 import { useMemo } from 'react'
 import { computeSupplementRecommendations } from '../lib/insights'
 
-export default function SupplementChecklist({ mealSlots, foodItems }) {
+export default function SupplementChecklist({ mealSlots, foodItems, selectedDay, checkedSupplements, onToggleChecked }) {
   const recommendations = useMemo(
-    () => computeSupplementRecommendations({ mealSlots, foodItems }),
-    [mealSlots, foodItems]
+    () => computeSupplementRecommendations({ mealSlots: mealSlots.filter(slot => slot.day === selectedDay), foodItems }),
+    [mealSlots, foodItems, selectedDay]
   )
 
   if (recommendations.length === 0) {
@@ -25,7 +25,8 @@ export default function SupplementChecklist({ mealSlots, foodItems }) {
             <input
               type="checkbox"
               className="h-3 w-3 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-              defaultChecked={false}
+              checked={checkedSupplements.has(rec.nutrient)}
+              onChange={() => onToggleChecked(rec.nutrient)}
             />
             <span className="text-xs text-gray-700">{rec.nutrient}</span>
           </div>

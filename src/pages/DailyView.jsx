@@ -297,6 +297,15 @@ export default function DailyView() {
       return DEFAULT_MEAL_TIMES
     }
   })
+  const [checkedSupplements, setCheckedSupplements] = useState(() => {
+    if (typeof window === 'undefined') return {}
+    try {
+      const stored = window.localStorage.getItem('parentCheckedSupplements')
+      return stored ? JSON.parse(stored) : {}
+    } catch {
+      return {}
+    }
+  })
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }))
 
@@ -305,6 +314,21 @@ export default function DailyView() {
     setMealTimes(nextTimes)
     if (typeof window !== 'undefined') {
       window.localStorage.setItem('parentDailyMealTimes', JSON.stringify(nextTimes))
+    }
+  }
+
+  function toggleSupplementChecked(nutrient) {
+    const dayChecks = checkedSupplements[selectedDay] || new Set()
+    const nextChecks = new Set(dayChecks)
+    if (nextChecks.has(nutrient)) {
+      nextChecks.delete(nutrient)
+    } else {
+      nextChecks.add(nutrient)
+    }
+    const nextState = { ...checkedSupplements, [selectedDay]: nextChecks }
+    setCheckedSupplements(nextState)
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem('parentCheckedSupplements', JSON.stringify(nextState))
     }
   }
 
@@ -425,6 +449,17 @@ export default function DailyView() {
             })}
           </div>
 
+          {/* Supplement checklist */}
+          <div style={{ marginTop: 28 }}>
+            <SupplementChecklist
+              mealSlots={mealSlots}
+              foodItems={foodItems}
+              selectedDay={selectedDay}
+              checkedSupplements={checkedSupplements[selectedDay] || new Set()}
+              onToggleChecked={toggleSupplementChecked}
+            />
+          </div>
+
           <p style={{
             fontSize: 11, color: 'var(--text-light)', lineHeight: 1.6,
             borderTop: '1px solid var(--border)', paddingTop: 18, marginTop: 28,
@@ -499,10 +534,6 @@ export default function DailyView() {
                 <span style={{ fontSize: 16, fontWeight: 700, color: s.color }}>{s.count}</span>
               </div>
             ))}
-          </div>
-
-          <div style={{ marginTop: 22 }}>
-            <SupplementChecklist mealSlots={mealSlots} foodItems={foodItems} />
           </div>
         </aside>
       </div>
