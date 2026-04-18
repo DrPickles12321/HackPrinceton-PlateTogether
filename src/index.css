@@ -1,5 +1,11 @@
 @import "tailwindcss";
 
+:focus-visible {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
 :root {
   --text: #6b6375;
   --text-h: #08060d;

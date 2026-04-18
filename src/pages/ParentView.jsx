@@ -1,111 +1,144 @@
 import { useState, useEffect } from 'react'
-import { DndContext, PointerSensor, useSensor, useSensors } from '@dnd-kit/core'
+import { DndContext, DragOverlay, PointerSensor, useSensor, useSensors } from '@dnd-kit/core'
 import { supabase } from '../lib/supabase'
+import { DEMO_FAMILY_ID } from '../lib/constants'
 import { useToast } from '../hooks/useToast'
+import { useRealtime } from '../hooks/useRealtime'
+import { useRealtimeStatus } from '../contexts/RealtimeContext'
 import FoodSidebar from '../components/FoodSidebar'
 import WeeklyGrid from '../components/WeeklyGrid'
 import MealLogModal from '../components/MealLogModal'
-
-const FAMILY_ID = import.meta.env.VITE_FAMILY_ID
+import FoodCardPreview from '../components/FoodCardPreview'
 
 export default function ParentView() {
   const [mealSlots, setMealSlots] = useState([])
   const [foodItems, setFoodItems] = useState([])
   const [mealLogs, setMealLogs] = useState([])
   const [loggingSlot, setLoggingSlot] = useState(null)
+  const [activeDrag, setActiveDrag] = useState(null)
   const { showToast } = useToast()
+  const { setStatus } = useRealtimeStatus()
 
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
-  )
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }))
 
   useEffect(() => {
-    supabase.from('meal_slots').select('*').eq('family_id', FAMILY_ID)
+    document.title = 'My Week · Plate Together'
+    supabase.from('meal_slots').select('*').eq('family_id', DEMO_FAMILY_ID)
       .then(({ data }) => { if (data) setMealSlots(data) })
-
-    supabase.from('food_items').select('*').eq('family_id', FAMILY_ID)
+    supabase.from('food_items').select('*').eq('family_id', DEMO_FAMILY_ID)
       .then(({ data }) => { if (data) setFoodItems(data) })
-
     supabase.from('meal_logs').select('*')
       .then(({ data }) => { if (data) setMealLogs(data) })
-  }, [])
+    return () => setStatus('disconnected')
+  }, [setStatus])
+
+  useRealtime({
+    table: 'meal_slots',
+    familyId: DEMO_FAMILY_ID,
+    onInsert: row => setMealSlots(c => c.some(s => s.id === row.id) ? c : [...c, row]),
+    onUpdate: row => setMealSlots(c => {
+      const existing = c.find(s => s.id === row.id)
+      if (existing && existing.assigned_food_id === row.assigned_food_id) return c
+      return c.map(s => s.id === row.id ? row : s)
+    }),
+    onDelete: row => setMealSlots(c => c.filter(s => s.id !== row.id)),
+    onStatusChange: setStatus,
+  })
+
+  useRealtime({
+    table: 'food_items',
+    familyId: DEMO_FAMILY_ID,
+    onInsert: row => setFoodItems(c => c.some(f => f.id === row.id) ? c : [...c, row]),
+    onUpdate: row => setFoodItems(c => c.map(f => f.id === row.id ? row : f)),
+    onDelete: row => {
+      setFoodItems(c => c.filter(f => f.id !== row.id))
+      setMealSlots(c => c.map(s => s.assigned_food_id === row.id ? { ...s, assigned_food_id: null } : s))
+    },
+  })
 
   async function handleDragEnd(event) {
     const { active, over } = event
+    setActiveDrag(null)
     if (!over) return
-
     const food = active.data.current?.food
     const slot = over.data.current?.slot
     if (!food || !slot) return
 
-    const optimisticSlots = mealSlots.map(s =>
-      s.id === slot.id ? { ...s, assigned_food_id: food.id } : s
-    )
-    setMealSlots(optimisticSlots)
+    const prev = mealSlots
+    setMealSlots(c => c.map(s => s.id === slot.id ? { ...s, assigned_food_id: food.id } : s))
 
     const { data, error } = await supabase
-      .from('meal_slots')
-      .update({ assigned_food_id: food.id })
-      .eq('id', slot.id)
-      .select()
-      .single()
+      .from('meal_slots').update({ assigned_food_id: food.id }).eq('id', slot.id).select().single()
 
     if (error) {
-      setMealSlots(mealSlots)
+      setMealSlots(prev)
       showToast('Could not save that drop. Please try again.', 'error')
     } else if (data) {
-      setMealSlots(s => s.map(x => x.id === data.id ? data : x))
+      setMealSlots(c => c.map(s => s.id === data.id ? data : s))
     }
-  }
-
-  function handleSlotClick(slot) {
-    setLoggingSlot(slot)
-  }
-
-  function getFoodName(foodId) {
-    if (!foodId) return ''
-    return foodItems.find(f => f.id === foodId)?.name || '(unknown food)'
   }
 
   async function insertMealLog({ slotId, status, note }) {
     if (!slotId) throw new Error('Cannot log meal: slot has no id yet')
-    if (!['okay', 'difficult', 'refused'].includes(status)) {
-      throw new Error(`Invalid status: ${status}`)
-    }
+    if (!['okay', 'difficult', 'refused'].includes(status)) throw new Error(`Invalid status: ${status}`)
 
     const { data, error } = await supabase
-      .from('meal_logs')
-      .insert({ meal_slot_id: slotId, status, note })
-      .select()
-      .single()
+      .from('meal_logs').insert({ meal_slot_id: slotId, status, note }).select().single()
 
     if (error) {
       showToast('Could not save meal log. Please try again.', 'error')
       throw error
     }
-
-    setMealLogs(current => [...current, data])
+    setMealLogs(c => [...c, data])
     showToast('Meal logged!', 'success')
   }
 
+  function getFoodById(foodId) {
+    return foodItems.find(f => f.id === foodId) || null
+  }
+
   return (
-    <div className="flex h-screen overflow-hidden">
-      <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
-        <FoodSidebar />
-        <WeeklyGrid
-          mealSlots={mealSlots}
-          foodItems={foodItems}
-          onSlotClick={handleSlotClick}
-        />
+    <div className="max-w-7xl mx-auto p-4 md:p-6">
+      <DndContext
+        sensors={sensors}
+        onDragStart={e => {
+          const food = e.active.data.current?.food
+          if (food) setActiveDrag(food)
+        }}
+        onDragEnd={handleDragEnd}
+        onDragCancel={() => setActiveDrag(null)}
+      >
+        <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-4 lg:gap-6">
+          <aside className="lg:sticky lg:top-[72px] lg:self-start lg:max-h-[calc(100vh-88px)] lg:overflow-y-auto">
+            <FoodSidebar />
+          </aside>
+          <main>
+            <WeeklyGrid
+              mealSlots={mealSlots}
+              foodItems={foodItems}
+              onSlotClick={setLoggingSlot}
+            />
+          </main>
+        </div>
+
+        <DragOverlay dropAnimation={{ duration: 200, easing: 'cubic-bezier(0.18, 0.67, 0.6, 1.22)' }}>
+          {activeDrag ? (
+            <FoodCardPreview name={activeDrag.name} category={activeDrag.category} floating />
+          ) : null}
+        </DragOverlay>
       </DndContext>
 
       <MealLogModal
         isOpen={loggingSlot !== null}
         onClose={() => setLoggingSlot(null)}
         slot={loggingSlot}
-        foodName={getFoodName(loggingSlot?.assigned_food_id)}
+        foodName={getFoodById(loggingSlot?.assigned_food_id)?.name || ''}
         onSubmit={insertMealLog}
       />
+
+      <footer className="text-xs text-gray-500 text-center py-6 mt-8 border-t">
+        This tool supports meal planning between families and their care team. It is not a substitute for medical advice, diagnosis, or treatment. If you're in crisis, contact your treatment team or a helpline in your region.
+      </footer>
     </div>
   )
 }
