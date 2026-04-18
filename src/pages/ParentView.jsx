@@ -10,6 +10,11 @@ export default function ParentView() {
   const [mealSlots, setMealSlots] = useState([])
   const [foodItems, setFoodItems] = useState([])
   const [mealLogs, setMealLogs] = useState([])
+  const [clinicianNotes, setClinicianNotes] = useState([])
+  const [parentNotes, setParentNotes] = useState(() => {
+    try { return Object.values(JSON.parse(localStorage.getItem('parentNotesByDate') || '{}')) }
+    catch { return [] }
+  })
   const { showToast } = useToast()
   const { setStatus } = useRealtimeStatus()
 
@@ -21,6 +26,9 @@ export default function ParentView() {
       .then(({ data }) => { if (data) setFoodItems(data) })
     supabase.from('meal_logs').select('*')
       .then(({ data }) => { if (data) setMealLogs(data) })
+    supabase.from('clinician_notes').select('*').eq('family_id', DEMO_FAMILY_ID)
+      .order('created_at', { ascending: false })
+      .then(({ data }) => { if (data) setClinicianNotes(data) })
     return () => setStatus('disconnected')
   }, [setStatus])
 
@@ -47,6 +55,24 @@ export default function ParentView() {
       setMealSlots(c => c.map(s => s.assigned_food_id === row.id ? { ...s, assigned_food_id: null } : s))
     },
   })
+
+  useRealtime({
+    table: 'clinician_notes',
+    familyId: DEMO_FAMILY_ID,
+    onInsert: row => setClinicianNotes(c => [row, ...c]),
+    onUpdate: row => setClinicianNotes(c => c.map(n => n.id === row.id ? row : n)),
+    onDelete: row => setClinicianNotes(c => c.filter(n => n.id !== row.id)),
+  })
+
+  function saveParentNote({ date, body, existingNoteId }) {
+    const stored = JSON.parse(localStorage.getItem('parentNotesByDate') || '{}')
+    const note = existingNoteId
+      ? { ...stored[date], body, read_at: null }
+      : { id: crypto.randomUUID(), date, body, read_at: null, created_at: new Date().toISOString() }
+    stored[date] = note
+    localStorage.setItem('parentNotesByDate', JSON.stringify(stored))
+    setParentNotes(Object.values(stored))
+  }
 
   async function updateMealSlot(slotId, assignedFoodId) {
     if (!slotId) throw new Error('Cannot update meal slot: slot id is required')
@@ -84,7 +110,7 @@ export default function ParentView() {
 
   return (
     <div className="max-w-7xl mx-auto p-4 md:p-6">
-      <Outlet context={{ mealSlots, foodItems, mealLogs, updateMealSlot, insertMealLog }} />
+      <Outlet context={{ mealSlots, foodItems, mealLogs, clinicianNotes, parentNotes, updateMealSlot, insertMealLog, saveParentNote }} />
     </div>
   )
 }

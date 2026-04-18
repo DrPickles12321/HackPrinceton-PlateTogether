@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { useDroppable } from '@dnd-kit/core'
 import NutritionBadge from './NutritionBadge'
 
@@ -23,11 +24,13 @@ const SLOT_BASE = 'border rounded-lg p-2 min-h-[80px] transition-colors duration
 const STATUS_DOT = { okay: 'bg-green-500', difficult: 'bg-yellow-500', refused: 'bg-red-500' }
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
 
-function getWeekDates() {
+const TODAY_ISO = new Date().toISOString().slice(0, 10)
+
+function getWeekDates(offset = 0) {
   const today = new Date()
   const day = today.getDay()
   const monday = new Date(today)
-  monday.setDate(today.getDate() - (day === 0 ? 6 : day - 1))
+  monday.setDate(today.getDate() - (day === 0 ? 6 : day - 1) + offset * 7)
   return Array.from({ length: 7 }, (_, i) => {
     const d = new Date(monday)
     d.setDate(monday.getDate() + i)
@@ -79,31 +82,40 @@ function ParentMealSlot({ slot, foodName, foodCategory, onSlotClick, isWeekend }
   )
 }
 
-function ClinicianMealSlot({ slot, foodName, foodCategory, latestLog, isWeekend }) {
-  const filled = !!slot.assigned_food_id
+function ClinicianMealSlot({ items = [], latestLog, isWeekend }) {
+  const filled = items.length > 0
   return (
     <div
-      aria-label={filled ? `${DAY_LABELS_FULL[slot.day]} ${slot.meal_type}, ${foodName}` : `${DAY_LABELS_FULL[slot.day]} ${slot.meal_type}, empty`}
       className={`${SLOT_BASE} cursor-default
         ${isWeekend ? 'bg-blue-50/30' : 'bg-white'}
         ${filled ? 'border-gray-200' : 'border-dashed border-gray-200'}
       `}
     >
       {filled ? (
-        <>
-          <span className="text-sm text-gray-900 leading-tight break-words pr-4 block">{foodName}</span>
-          <NutritionBadge foodName={foodName} category={foodCategory} mode="clinician" />
-        </>
+        <div className="space-y-1 pr-4">
+          {items.map((food, i) => (
+            <div key={i}>
+              <span className="text-xs text-gray-900 leading-tight break-words block">{food.name}</span>
+              <NutritionBadge foodName={food.name} category={food.category} mode="clinician" />
+            </div>
+          ))}
+          {latestLog && <StatusBadge log={latestLog} />}
+        </div>
       ) : (
         <div className="flex items-center justify-center h-full text-gray-300 text-xs pt-4">—</div>
       )}
-      {filled && <StatusBadge log={latestLog} />}
     </div>
   )
 }
 
-export default function WeeklyGrid({ mealSlots, foodItems, mode = 'parent', onSlotClick, latestLogBySlot = {}, onDayClick }) {
-  const weekDates = getWeekDates()
+export default function WeeklyGrid({ mealSlots, foodItems, mode = 'parent', onSlotClick, latestLogBySlot = {}, onDayClick, parentNotes = [], onMarkNoteRead, parentMealItems = {} }) {
+  const [weekOffset, setWeekOffset] = useState(0)
+  const weekDates = getWeekDates(weekOffset)
+
+  const weekLabel = weekOffset === 0 ? 'This week'
+    : weekOffset === -1 ? 'Last week'
+    : weekOffset === 1 ? 'Next week'
+    : `${MONTHS[weekDates[0].getMonth()]} ${weekDates[0].getDate()} – ${MONTHS[weekDates[6].getMonth()]} ${weekDates[6].getDate()}`
 
   function getSlot(day, mealType) {
     return mealSlots.find(s => s.day === day && s.meal_type === mealType)
@@ -117,6 +129,29 @@ export default function WeeklyGrid({ mealSlots, foodItems, mode = 'parent', onSl
 
   return (
     <div className="flex-1 overflow-auto p-4">
+      {/* Week navigation — clinician only */}
+      {mode === 'clinician' && (
+        <div className="flex items-center justify-between mb-3 px-1">
+          <button
+            onClick={() => setWeekOffset(o => o - 1)}
+            className="text-gray-400 hover:text-gray-700 text-xl px-2 py-1 rounded transition-colors"
+          >‹</button>
+          <span className="text-sm font-semibold flex items-center gap-2" style={{ color: weekOffset === 0 ? '#E8735A' : '#6b7280' }}>
+            {weekLabel}
+            {weekOffset !== 0 && (
+              <button
+                onClick={() => setWeekOffset(0)}
+                className="text-xs font-semibold px-2 py-0.5 rounded border border-gray-300 text-orange-500 hover:bg-orange-50 transition-colors"
+              >Today</button>
+            )}
+          </span>
+          <button
+            onClick={() => setWeekOffset(o => o + 1)}
+            className="text-gray-400 hover:text-gray-700 text-xl px-2 py-1 rounded transition-colors"
+          >›</button>
+        </div>
+      )}
+
       <div className="overflow-x-auto -mx-4 px-4 md:mx-0 md:px-0">
         <div className="min-w-[720px]">
           {/* Sticky day header with dates */}
@@ -124,18 +159,25 @@ export default function WeeklyGrid({ mealSlots, foodItems, mode = 'parent', onSl
             <div />
             {DAYS.map((day, i) => {
               const d = weekDates[i]
+              const dateIso = d.toISOString().slice(0, 10)
+              const isToday = dateIso === TODAY_ISO
               const dateStr = `${MONTHS[d.getMonth()]} ${d.getDate()}`
               const clickable = mode === 'clinician' && !!onDayClick
               return (
                 <div
                   key={day.key}
                   onClick={clickable ? () => onDayClick(day.key) : undefined}
-                  className={`text-center py-2 rounded ${day.isWeekend ? 'bg-blue-50 text-blue-900' : 'text-gray-600'} ${clickable ? 'cursor-pointer hover:bg-indigo-50 hover:text-indigo-800 transition-colors' : ''}`}
+                  className={[
+                    'text-center py-2 rounded transition-colors',
+                    isToday ? 'bg-orange-50 text-orange-600' : day.isWeekend ? 'bg-blue-50 text-blue-900' : 'text-gray-600',
+                    clickable ? 'cursor-pointer hover:bg-indigo-50 hover:text-indigo-800' : '',
+                  ].join(' ')}
                   title={clickable ? `View ${day.label} nutrition` : undefined}
                 >
-                  <div className="text-xs font-semibold uppercase tracking-wide">{day.label}</div>
-                  <div className="text-xs text-gray-400 mt-0.5">{dateStr}</div>
-                  {clickable && <div className="text-[9px] text-indigo-400 mt-0.5">tap for nutrition</div>}
+                  <div className={`text-xs font-semibold uppercase tracking-wide ${isToday ? 'text-orange-500' : ''}`}>{day.label}</div>
+                  <div className={`text-xs mt-0.5 ${isToday ? 'text-orange-400 font-medium' : 'text-gray-400'}`}>{dateStr}</div>
+                  {isToday && <div className="w-1.5 h-1.5 rounded-full bg-orange-400 mx-auto mt-0.5" />}
+                  {clickable && !isToday && <div className="text-[9px] text-indigo-400 mt-0.5">tap for nutrition</div>}
                 </div>
               )
             })}
@@ -147,19 +189,22 @@ export default function WeeklyGrid({ mealSlots, foodItems, mode = 'parent', onSl
               <div className="flex items-center text-sm font-medium text-gray-700">
                 {meal.label}
               </div>
-              {DAYS.map(day => {
+              {DAYS.map((day, i) => {
                 const slot = getSlot(day.key, meal.key)
+                if (mode === 'clinician') {
+                  const dateIso = weekDates[i].toISOString().slice(0, 10)
+                  const items = (parentMealItems[dateIso] || {})[meal.key] || []
+                  return (
+                    <ClinicianMealSlot
+                      key={`${day.key}-${meal.key}`}
+                      items={items}
+                      latestLog={slot.id ? latestLogBySlot[slot.id] : null}
+                      isWeekend={day.isWeekend}
+                    />
+                  )
+                }
                 const { name: foodName, category: foodCategory } = getFood(slot.assigned_food_id)
-                return mode === 'clinician' ? (
-                  <ClinicianMealSlot
-                    key={`${day.key}-${meal.key}`}
-                    slot={slot}
-                    foodName={foodName}
-                    foodCategory={foodCategory}
-                    latestLog={slot.id ? latestLogBySlot[slot.id] : null}
-                    isWeekend={day.isWeekend}
-                  />
-                ) : (
+                return (
                   <ParentMealSlot
                     key={slot.id || `${day.key}-${meal.key}`}
                     slot={slot}
@@ -172,6 +217,47 @@ export default function WeeklyGrid({ mealSlots, foodItems, mode = 'parent', onSl
               })}
             </div>
           ))}
+
+          {/* Parent notes row — clinician mode only */}
+          {mode === 'clinician' && (
+            <div className="grid grid-cols-[100px_repeat(7,1fr)] gap-2 mb-2 mt-1">
+              <div className="flex items-center text-sm font-medium text-gray-700">
+                Parent Notes
+              </div>
+              {DAYS.map((day, i) => {
+                const dateIso = weekDates[i].toISOString().slice(0, 10)
+                const note = parentNotes.find(n => n.date === dateIso)
+                const isUnread = note && !note.read_at
+                return (
+                  <div
+                    key={day.key}
+                    onClick={() => isUnread && onMarkNoteRead?.(note.id)}
+                    title={note ? (isUnread ? 'Click to mark as read' : 'Already read') : undefined}
+                    className={[
+                      'rounded-lg p-2 border min-h-[64px] transition-colors',
+                      note
+                        ? isUnread
+                          ? 'bg-amber-50 border-amber-300 cursor-pointer hover:bg-amber-100'
+                          : 'bg-gray-50 border-gray-200 cursor-default'
+                        : 'border-dashed border-gray-200 cursor-default',
+                    ].join(' ')}
+                  >
+                    {note ? (
+                      <div>
+                        <p className="text-xs text-gray-700 leading-snug line-clamp-3">{note.body}</p>
+                        {isUnread
+                          ? <span className="text-[9px] text-amber-500 mt-1 block font-semibold">● unread — click to mark read</span>
+                          : <span className="text-[9px] text-green-500 mt-1 block">✓ read</span>
+                        }
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-center h-full text-gray-300 text-xs pt-3">—</div>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          )}
         </div>
       </div>
     </div>

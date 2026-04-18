@@ -1,58 +1,52 @@
-import NoteCard from './NoteCard'
 import NoteComposer from './NoteComposer'
 
-const DAY_LABELS = { mon: 'Mon', tue: 'Tue', wed: 'Wed', thu: 'Thu', fri: 'Fri', sat: 'Sat', sun: 'Sun' }
+function formatDate(isoString) {
+  return new Date(isoString).toLocaleDateString('en-US', {
+    weekday: 'short', month: 'short', day: 'numeric', year: 'numeric'
+  })
+}
 
-function capitalize(s) { return s.charAt(0).toUpperCase() + s.slice(1) }
+function toDateKey(isoString) {
+  if (!isoString) return 'unknown'
+  const d = new Date(isoString)
+  return isNaN(d.getTime()) ? 'unknown' : d.toISOString().slice(0, 10)
+}
 
-export default function NotesPanel({ notes, mealSlots, foodItems, mode, onSend, onMarkRead, onDelete }) {
-  function getSlotLabel(slotId) {
-    if (!slotId) return null
-    const slot = mealSlots.find(s => s.id === slotId)
-    if (!slot) return null
-    const food = foodItems.find(f => f.id === slot.assigned_food_id)
-    return `${DAY_LABELS[slot.day]} · ${capitalize(slot.meal_type)} · ${food?.name || '(unknown food)'}`
+export default function NotesPanel({ notes, mode, onSave }) {
+  const today = new Date().toISOString().slice(0, 10)
+
+  const byDay = {}
+  for (const note of notes) {
+    const key = toDateKey(note.created_at)
+    if (!byDay[key] || new Date(note.created_at) > new Date(byDay[key].created_at)) {
+      byDay[key] = note
+    }
   }
 
-  const unreadCount = notes.filter(n => !n.is_read).length
-  const sorted = [...notes].sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+  const todayNote = byDay[today] || null
 
   return (
     <section className="bg-white border border-gray-200 rounded-xl overflow-hidden">
       <header className="flex items-center justify-between px-4 py-3 border-b border-gray-100 bg-gray-50">
-        <h3 className="font-semibold text-gray-800 text-sm flex items-center gap-2">
-          Clinician Notes
-          {unreadCount > 0 && (
-            <span className="bg-purple-600 text-white text-xs rounded-full px-2 py-0.5">
-              {unreadCount} new
-            </span>
-          )}
-        </h3>
+        <h3 className="font-semibold text-gray-800 text-sm">Clinician Notes</h3>
       </header>
 
-      {mode === 'clinician' && (
-        <div className="p-4 border-b border-gray-100">
-          <NoteComposer mealSlots={mealSlots} foodItems={foodItems} onSend={onSend} />
-        </div>
-      )}
-
-      <div className="divide-y divide-gray-100 max-h-[400px] overflow-y-auto">
-        {sorted.length === 0 ? (
-          <p className="text-sm text-gray-400 text-center py-8">
-            {mode === 'clinician' ? 'No notes sent yet.' : 'No notes from your clinician yet.'}
-          </p>
+      <div className="p-4">
+        <p className="text-xs font-medium text-gray-500 mb-2 uppercase tracking-wide">
+          Today · {formatDate(new Date().toISOString())}
+        </p>
+        {mode === 'clinician' ? (
+          <NoteComposer
+            existingNote={todayNote}
+            onSave={(body) => onSave({ body, existingNoteId: todayNote?.id || null })}
+          />
+        ) : todayNote ? (
+          <div>
+            <p className="text-sm text-gray-800 leading-relaxed whitespace-pre-wrap">{todayNote.body}</p>
+            <p className="text-xs text-gray-400 mt-2">Last updated {formatDate(todayNote.created_at)}</p>
+          </div>
         ) : (
-          sorted.map(note => (
-            <div key={note.id} className="p-4">
-              <NoteCard
-                note={note}
-                slotLabel={getSlotLabel(note.slot_id)}
-                showMarkRead={mode === 'parent'}
-                onMarkRead={onMarkRead}
-                onDelete={onDelete}
-              />
-            </div>
-          ))
+          <p className="text-sm text-gray-400">No note for today yet.</p>
         )}
       </div>
     </section>

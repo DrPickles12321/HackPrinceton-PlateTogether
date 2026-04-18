@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react'
+import { useEffect, useState, useMemo, useCallback } from 'react'
 import { useOutletContext } from 'react-router-dom'
 import { DndContext, DragOverlay, PointerSensor, useSensor, useSensors, useDroppable } from '@dnd-kit/core'
 import FoodSidebar from '../components/FoodSidebar'
@@ -44,11 +44,30 @@ const RING_NUTRIENTS = [
 ]
 
 const EMPTY_MEAL_ITEMS = { breakfast: [], lunch: [], snack: [], dinner: [] }
+const DAY_KEYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']
 
 function getTodayKey() {
   const days = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat']
   return days[new Date().getDay()]
 }
+
+// Returns { mon: '2026-04-21', ... } offset weeks from current week (0 = this week)
+function getWeekDates(offset = 0) {
+  const today = new Date()
+  const dow = today.getDay()
+  const diff = dow === 0 ? -6 : 1 - dow
+  const monday = new Date(today)
+  monday.setDate(today.getDate() + diff + offset * 7)
+  const result = {}
+  DAY_KEYS.forEach((key, i) => {
+    const d = new Date(monday)
+    d.setDate(monday.getDate() + i)
+    result[key] = d.toISOString().slice(0, 10)
+  })
+  return result
+}
+
+const TODAY_ISO = new Date().toISOString().slice(0, 10)
 
 function parseTimeValue(value) {
   const [hour = '08', minute = '00'] = (value || '08:00').split(':')
@@ -313,6 +332,100 @@ function ProgressRing({ value, target, color, darkColor, label }) {
   )
 }
 
+// ─── Parent note section ──────────────────────────────────────────────────────
+
+function ParentNoteSection({ note, selectedDate, onSave }) {
+  const [body, setBody] = useState(note?.body || '')
+  const [isSaving, setIsSaving] = useState(false)
+  const [saveStatus, setSaveStatus] = useState('idle')
+
+  useEffect(() => {
+    setBody(note?.body || '')
+    setSaveStatus('idle')
+  }, [selectedDate])
+
+  const isDirty = body.trim() !== (note?.body?.trim() || '')
+  const isRead = !!note?.read_at
+
+  async function handleSave() {
+    if (!isDirty || isSaving) return
+    setIsSaving(true)
+    setSaveStatus('idle')
+    try {
+      await onSave(body.trim())
+      setSaveStatus('saved')
+    } catch {
+      setSaveStatus('error')
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  return (
+    <div style={{
+      marginTop: 24,
+      background: 'white', borderRadius: 16,
+      border: '1.5px solid var(--border)',
+      boxShadow: '0 2px 12px rgba(39,23,6,0.06)',
+      padding: '20px 24px',
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+        <div>
+          <div style={{ fontWeight: 700, fontSize: 15, color: 'var(--text-dark)' }}>Parent Note</div>
+          <div style={{ fontSize: 12, color: 'var(--text-light)', marginTop: 2 }}>Leave a note for your care team</div>
+        </div>
+        {isRead && (
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 6,
+            background: 'var(--mint-light)', borderRadius: 10, padding: '5px 10px',
+            border: '1px solid var(--mint-mid)',
+          }}>
+            <div style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--mint)', flexShrink: 0 }} />
+            <span style={{ fontSize: 11, color: 'var(--mint)', fontWeight: 500 }}>Clinician read</span>
+          </div>
+        )}
+      </div>
+      <textarea
+        value={body}
+        onChange={e => { setBody(e.target.value); setSaveStatus('idle') }}
+        placeholder="Write a note for your care team..."
+        rows={3}
+        maxLength={1000}
+        style={{
+          width: '100%', border: '1.5px solid var(--border-mid)', borderRadius: 10,
+          padding: '10px 12px', fontSize: 13, fontFamily: "'Outfit', sans-serif",
+          resize: 'none', outline: 'none', boxSizing: 'border-box', color: 'var(--text-dark)',
+          lineHeight: 1.6,
+        }}
+      />
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 8 }}>
+        <span style={{ fontSize: 11, color: 'var(--text-light)' }}>{body.length} / 1000</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          {saveStatus === 'saved' && !isDirty && (
+            <span style={{ fontSize: 11, color: 'var(--mint)', fontWeight: 500 }}>Saved</span>
+          )}
+          {saveStatus === 'error' && (
+            <span style={{ fontSize: 11, color: 'var(--pink)', fontWeight: 500 }}>Failed to save</span>
+          )}
+          <button
+            onClick={handleSave}
+            disabled={!isDirty || isSaving}
+            style={{
+              background: 'linear-gradient(135deg, var(--coral) 0%, var(--pink) 100%)',
+              color: 'white', border: 'none', borderRadius: 10, padding: '7px 16px',
+              fontSize: 12, fontWeight: 600, cursor: (!isDirty || isSaving) ? 'default' : 'pointer',
+              opacity: (!isDirty || isSaving) ? 0.4 : 1,
+              fontFamily: "'Outfit', sans-serif", transition: 'opacity 0.15s',
+            }}
+          >
+            {isSaving ? 'Saving…' : note?.id ? 'Update note' : 'Save note'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ─── Daily progress panel ─────────────────────────────────────────────────────
 
 function DailyProgressPanel({ mealItems }) {
@@ -367,10 +480,17 @@ function DailyProgressPanel({ mealItems }) {
 // ─── Main view ────────────────────────────────────────────────────────────────
 
 export default function DailyView() {
-  const { mealSlots, foodItems, mealLogs, insertMealLog } = useOutletContext()
+  const { mealSlots, foodItems, mealLogs, clinicianNotes = [], parentNotes = [], insertMealLog, saveParentNote } = useOutletContext()
   const [selectedDay, setSelectedDay] = useState(getTodayKey)
+  const [weekOffset, setWeekOffset] = useState(0)
   const [activeDrag, setActiveDrag] = useState(null)
-  const [mealItems, setMealItems] = useState(EMPTY_MEAL_ITEMS)
+  const [allMealItems, setAllMealItems] = useState(() => {
+    try {
+      return JSON.parse(window.localStorage.getItem('parentMealItemsByDate') || '{}')
+    } catch { return {} }
+  })
+
+  const weekDates = useMemo(() => getWeekDates(weekOffset), [weekOffset])
   const [mealTimes, setMealTimes] = useState(() => {
     try {
       const stored = window.localStorage.getItem('parentDailyMealTimes')
@@ -378,10 +498,16 @@ export default function DailyView() {
     } catch { return DEFAULT_MEAL_TIMES }
   })
 
-  // Reset food items when switching days
-  useEffect(() => {
-    setMealItems(EMPTY_MEAL_ITEMS)
-  }, [selectedDay])
+  const selectedDate = weekDates[selectedDay]
+  const mealItems = allMealItems[selectedDate] || EMPTY_MEAL_ITEMS
+
+  function setMealItemsForDay(updater) {
+    setAllMealItems(prev => {
+      const next = { ...prev, [selectedDate]: updater(prev[selectedDate] || EMPTY_MEAL_ITEMS) }
+      window.localStorage.setItem('parentMealItemsByDate', JSON.stringify(next))
+      return next
+    })
+  }
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }))
 
@@ -410,25 +536,17 @@ export default function DailyView() {
     const food = active.data.current?.food
     const mealType = over.data.current?.mealType
     if (!food || !mealType) return
-    setMealItems(prev => ({
-      ...prev,
-      [mealType]: [...prev[mealType], food],
-    }))
+    setMealItemsForDay(prev => ({ ...prev, [mealType]: [...prev[mealType], food] }))
   }
 
   function removeItem(mealType, index) {
-    setMealItems(prev => ({
-      ...prev,
-      [mealType]: prev[mealType].filter((_, i) => i !== index),
-    }))
+    setMealItemsForDay(prev => ({ ...prev, [mealType]: prev[mealType].filter((_, i) => i !== index) }))
   }
 
   async function handleQuickLog(slot, status) {
     if (!slot?.id) return
     try { await insertMealLog({ slotId: slot.id, status, note: null }) } catch {}
   }
-
-  const todayKey = getTodayKey()
 
   return (
     <DndContext
@@ -453,6 +571,29 @@ export default function DailyView() {
 
           {/* Day selector */}
           <div style={{ marginBottom: 24 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+              <button
+                onClick={() => setWeekOffset(o => o - 1)}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-light)', fontSize: 18, padding: '0 4px', fontFamily: 'inherit' }}
+              >‹</button>
+              <span style={{ fontSize: 12, color: weekOffset === 0 ? 'var(--coral)' : 'var(--text-light)', fontWeight: 600 }}>
+                {weekOffset === 0 ? 'This week' : weekOffset === -1 ? 'Last week' : weekOffset === 1 ? 'Next week' : (() => {
+                  const mon = weekDates['mon']
+                  const sun = weekDates['sun']
+                  return `${new Date(mon + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} – ${new Date(sun + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`
+                })()}
+                {weekOffset !== 0 && (
+                  <button
+                    onClick={() => setWeekOffset(0)}
+                    style={{ marginLeft: 8, background: 'none', border: '1px solid var(--border-mid)', borderRadius: 6, cursor: 'pointer', color: 'var(--coral)', fontSize: 10, fontWeight: 600, padding: '2px 7px', fontFamily: 'inherit' }}
+                  >Today</button>
+                )}
+              </span>
+              <button
+                onClick={() => setWeekOffset(o => o + 1)}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-light)', fontSize: 18, padding: '0 4px', fontFamily: 'inherit' }}
+              >›</button>
+            </div>
             <div style={{
               display: 'flex', gap: 4, background: 'white',
               borderRadius: 16, padding: 4,
@@ -460,32 +601,34 @@ export default function DailyView() {
               boxShadow: '0 2px 8px rgba(39,23,6,0.05)',
             }}>
               {DAYS.map(day => {
-                const isToday = day.key === todayKey
+                const dateIso = weekDates[day.key]
+                const isToday = dateIso === TODAY_ISO
                 const isSelected = day.key === selectedDay
+                const dateObj = new Date(dateIso + 'T12:00:00')
+                const dateLabel = `${dateObj.getMonth() + 1}/${dateObj.getDate()}`
                 return (
                   <button
                     key={day.key}
                     onClick={() => setSelectedDay(day.key)}
                     style={{
-                      flex: 1, padding: '9px 4px', borderRadius: 12, border: 'none',
+                      flex: 1, padding: '7px 4px', borderRadius: 12, border: 'none',
                       background: isSelected
                         ? 'linear-gradient(135deg, var(--coral) 0%, var(--pink) 100%)'
                         : 'transparent',
-                      color: isSelected ? 'white' : isToday ? 'var(--text-mid)' : 'var(--text-light)',
-                      fontWeight: isSelected ? 600 : isToday ? 500 : 400,
-                      fontSize: 12, cursor: 'pointer', transition: 'all 0.15s',
-                      position: 'relative',
+                      color: isSelected ? 'white' : isToday ? 'var(--coral)' : 'var(--text-light)',
+                      fontWeight: isSelected ? 600 : isToday ? 600 : 400,
+                      fontSize: 11, cursor: 'pointer', transition: 'all 0.15s',
                       boxShadow: isSelected ? '0 2px 8px rgba(184,85,53,0.3)' : 'none',
                       fontFamily: "'Outfit', sans-serif",
+                      display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2,
                     }}
                   >
-                    {day.label}
+                    <span>{day.label}</span>
+                    <span style={{ fontSize: 10, opacity: isSelected ? 0.85 : 0.7 }}>{dateLabel}</span>
                     {isToday && !isSelected && (
                       <span style={{
-                        position: 'absolute', bottom: 4, left: '50%',
-                        transform: 'translateX(-50%)',
                         width: 3, height: 3, borderRadius: '50%',
-                        background: 'var(--coral)',
+                        background: 'var(--coral)', display: 'block',
                       }} />
                     )}
                   </button>
@@ -517,6 +660,16 @@ export default function DailyView() {
           {/* Daily progress rings */}
           <DailyProgressPanel mealItems={mealItems} />
 
+          {/* Parent note for this day */}
+          <ParentNoteSection
+            note={parentNotes.find(n => n.date === selectedDate) || null}
+            selectedDate={selectedDate}
+            onSave={body => {
+              const existing = parentNotes.find(n => n.date === selectedDate)
+              return saveParentNote({ date: selectedDate, body, existingNoteId: existing?.id || null })
+            }}
+          />
+
           <p style={{
             fontSize: 11, color: 'var(--text-light)', lineHeight: 1.6,
             borderTop: '1px solid var(--border)', paddingTop: 18, marginTop: 28,
@@ -543,27 +696,35 @@ export default function DailyView() {
             <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-dark)' }}>Parent</div>
           </div>
 
-          <div style={{
-            background: 'var(--mint-light)', borderRadius: 12, padding: '9px 12px',
-            marginBottom: 20, display: 'flex', alignItems: 'center', gap: 8,
-            border: '1px solid var(--mint-mid)',
-          }}>
-            <div style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--mint)', flexShrink: 0 }} />
-            <span style={{ fontSize: 12, color: 'var(--mint)', fontWeight: 500 }}>Clinician read</span>
-          </div>
-
           <div style={{ marginBottom: 22 }}>
             <div style={{
               fontSize: 10, fontWeight: 700, color: 'var(--text-light)',
               letterSpacing: '0.7px', textTransform: 'uppercase', marginBottom: 9,
             }}>Clinician Notes</div>
-            <div style={{
-              background: 'var(--peach-light)', borderRadius: 14, padding: '13px',
-              fontSize: 13, color: 'var(--text-mid)', lineHeight: 1.6, fontStyle: 'italic',
-              border: '1px solid var(--peach-mid)',
-            }}>
-              "Great progress this week on identifying patterns!"
-            </div>
+            {(() => {
+              const today = new Date().toISOString().slice(0, 10)
+              const todayNote = clinicianNotes.find(n => n.created_at?.slice(0, 10) === today)
+              const latest = todayNote || clinicianNotes[0] || null
+              return latest ? (
+                <div style={{
+                  background: 'var(--peach-light)', borderRadius: 14, padding: '13px',
+                  border: '1px solid var(--peach-mid)',
+                }}>
+                  <p style={{ margin: 0, fontSize: 13, color: 'var(--text-mid)', lineHeight: 1.6 }}>{latest.body}</p>
+                  {latest.created_at && (
+                    <p style={{ margin: '6px 0 0', fontSize: 10, color: 'var(--text-light)' }}>
+                      Last updated {new Date(latest.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                    </p>
+                  )}
+                </div>
+              ) : (
+                <div style={{
+                  background: 'var(--peach-light)', borderRadius: 14, padding: '13px',
+                  fontSize: 12, color: 'var(--text-light)', lineHeight: 1.6, fontStyle: 'italic',
+                  border: '1px solid var(--peach-mid)',
+                }}>No notes yet.</div>
+              )
+            })()}
           </div>
 
           <div>

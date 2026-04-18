@@ -16,6 +16,14 @@ export default function ClinicianView() {
   const [foodItems, setFoodItems] = useState([])
   const [mealLogs, setMealLogs] = useState([])
   const [notes, setNotes] = useState([])
+  const [parentNotes, setParentNotes] = useState(() => {
+    try { return Object.values(JSON.parse(localStorage.getItem('parentNotesByDate') || '{}')) }
+    catch { return [] }
+  })
+  const [parentMealItems, setParentMealItems] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('parentMealItemsByDate') || '{}') }
+    catch { return {} }
+  })
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [selectedDay, setSelectedDay] = useState(null)
@@ -27,6 +35,22 @@ export default function ClinicianView() {
     loadData()
     return () => setStatus('disconnected')
   }, [setStatus])
+
+  useEffect(() => {
+    function refreshParentData() {
+      try { setParentNotes(Object.values(JSON.parse(localStorage.getItem('parentNotesByDate') || '{}'))) }
+      catch {}
+      try { setParentMealItems(JSON.parse(localStorage.getItem('parentMealItemsByDate') || '{}')) }
+      catch {}
+    }
+    function onVisibility() { if (!document.hidden) refreshParentData() }
+    window.addEventListener('storage', refreshParentData)
+    document.addEventListener('visibilitychange', onVisibility)
+    return () => {
+      window.removeEventListener('storage', refreshParentData)
+      document.removeEventListener('visibilitychange', onVisibility)
+    }
+  }, [])
 
   async function loadData() {
     setLoading(true)
@@ -100,22 +124,36 @@ export default function ClinicianView() {
     onDelete: row => setNotes(c => c.filter(n => n.id !== row.id)),
   })
 
+  function handleMarkNoteRead(noteId) {
+    const stored = JSON.parse(localStorage.getItem('parentNotesByDate') || '{}')
+    const date = Object.keys(stored).find(d => stored[d].id === noteId)
+    if (!date) return
+    stored[date] = { ...stored[date], read_at: new Date().toISOString() }
+    localStorage.setItem('parentNotesByDate', JSON.stringify(stored))
+    setParentNotes(Object.values(stored))
+  }
+
   async function handleDeleteNote(noteId) {
     setNotes(c => c.filter(n => n.id !== noteId))
     await supabase.from('clinician_notes').delete().eq('id', noteId)
   }
 
-  async function handleSendNote({ body, slotId }) {
-    const { data, error } = await supabase
-      .from('clinician_notes')
-      .insert({ family_id: DEMO_FAMILY_ID, body, slot_id: slotId })
-      .select().single()
-    if (error) {
-      showToast('Could not send note.', 'error')
-      throw error
+  async function handleSaveNote({ body, existingNoteId }) {
+    if (existingNoteId) {
+      const { error } = await supabase
+        .from('clinician_notes')
+        .update({ body })
+        .eq('id', existingNoteId)
+      if (error) throw error
+      setNotes(c => c.map(n => n.id === existingNoteId ? { ...n, body } : n))
+    } else {
+      const { data, error } = await supabase
+        .from('clinician_notes')
+        .insert({ family_id: DEMO_FAMILY_ID, body, slot_id: null })
+        .select().single()
+      if (error) throw error
+      setNotes(c => [data, ...c])
     }
-    setNotes(c => [data, ...c])
-    showToast('Note sent!', 'success')
   }
 
   const latestLogBySlot = useMemo(() => {
@@ -150,18 +188,17 @@ export default function ClinicianView() {
             mode="clinician"
             latestLogBySlot={latestLogBySlot}
             onDayClick={day => setSelectedDay(day)}
+            parentNotes={parentNotes}
+            onMarkNoteRead={handleMarkNoteRead}
+            parentMealItems={parentMealItems}
           />
           <WeeklyInsights mealLogs={mealLogs} foodItems={foodItems} mealSlots={mealSlots} />
           <WeeklyGoals mealSlots={mealSlots} foodItems={foodItems} mode="clinician" />
           <NutritionalTargets />
           <NotesPanel
             notes={notes}
-            mealSlots={mealSlots}
-            foodItems={foodItems}
             mode="clinician"
-            onSend={handleSendNote}
-            onMarkRead={() => {}}
-            onDelete={handleDeleteNote}
+            onSave={handleSaveNote}
           />
         </>
       )}
