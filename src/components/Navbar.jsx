@@ -1,58 +1,125 @@
-import { NavLink, useNavigate } from 'react-router-dom'
+import { NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { useRealtimeStatus } from '../contexts/RealtimeContext'
 import LiveIndicator from './LiveIndicator'
+
+const PARENT_TABS = [
+  { to: '/parent/daily',  label: 'Daily' },
+  { to: '/parent/weekly', label: 'Weekly' },
+  { to: '/parent/stats',  label: 'Insights' },
+]
 
 export default function Navbar() {
   const { status } = useRealtimeStatus()
   const navigate = useNavigate()
-
-  function handleSwitchRole() {
-    localStorage.removeItem('demoRole')
-    localStorage.removeItem('demoFamilyId')
-    navigate('/', { replace: true })
-  }
+  const { pathname } = useLocation()
+  const isParent    = pathname.startsWith('/parent')
+  const isClinician = pathname.startsWith('/clinician')
 
   return (
-    <nav className="border-b border-gray-200 bg-white sticky top-0 z-40">
-      <div className="max-w-7xl mx-auto px-6 py-3 flex items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <span className="text-2xl" aria-hidden="true">🍽️</span>
-          <div>
-            <div className="font-semibold text-gray-900 leading-tight">Plate Together</div>
-            <div className="hidden sm:block text-[10px] uppercase tracking-wider text-gray-500 leading-tight">
-              Meal planning · supportive care
-            </div>
+    <nav style={{
+      background: 'rgba(255,255,255,0.92)',
+      backdropFilter: 'blur(12px)',
+      borderBottom: '1px solid var(--border)',
+      position: 'sticky', top: 0, zIndex: 40,
+    }}>
+      <div style={{ maxWidth: 1200, margin: '0 auto', padding: '0 24px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: 60 }}>
+
+          {/* Brand */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
+            <div style={{
+              width: 36, height: 36,
+              background: 'linear-gradient(135deg, var(--coral) 0%, var(--pink) 100%)',
+              borderRadius: 11, display: 'flex', alignItems: 'center',
+              justifyContent: 'center', fontSize: 17, flexShrink: 0,
+              boxShadow: '0 2px 8px rgba(184,85,53,0.3)',
+            }}>🍽️</div>
+            <span className="font-lora" style={{
+              fontWeight: 500, fontSize: 19, color: 'var(--text-dark)',
+              letterSpacing: '-0.3px', lineHeight: 1,
+            }}>Plate Together</span>
           </div>
-        </div>
 
-        <div className="flex items-center gap-1 bg-gray-100 rounded-full p-1">
-          <NavLink
-            to="/parent"
-            className={({ isActive }) =>
-              `px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${
-                isActive ? 'bg-white shadow-sm text-blue-700' : 'text-gray-600 hover:text-gray-900'
-              }`
-            }
-          >
-            Parent
-          </NavLink>
-          <NavLink
-            to="/clinician"
-            className={({ isActive }) =>
-              `px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${
-                isActive ? 'bg-white shadow-sm text-purple-700' : 'text-gray-600 hover:text-gray-900'
-              }`
-            }
-          >
-            Clinician
-          </NavLink>
-        </div>
+          {/* Parent sub-tabs (center) */}
+          {isParent && (
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: 2,
+              background: 'var(--surface-warm)', padding: '3px',
+              borderRadius: 13, border: '1.5px solid var(--border)',
+            }}>
+              {PARENT_TABS.map(tab => (
+                <NavLink
+                  key={tab.to}
+                  to={tab.to}
+                  style={({ isActive }) => ({
+                    padding: '6px 18px', borderRadius: 10,
+                    fontSize: 13, fontWeight: 500,
+                    textDecoration: 'none', transition: 'all 0.15s',
+                    color: isActive ? 'white' : 'var(--text-mid)',
+                    background: isActive
+                      ? 'linear-gradient(135deg, var(--coral) 0%, var(--pink) 100%)'
+                      : 'transparent',
+                    boxShadow: isActive ? '0 2px 8px rgba(184,85,53,0.28)' : 'none',
+                  })}
+                >
+                  {tab.label}
+                </NavLink>
+              ))}
+            </div>
+          )}
 
-        <div className="flex items-center gap-4">
-          <LiveIndicator status={status} />
-          <button onClick={handleSwitchRole} className="text-xs text-gray-500 hover:text-gray-800 underline">
-            Switch role
-          </button>
+          {/* Right side */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexShrink: 0 }}>
+            <LiveIndicator status={status} />
+
+            {/* Role toggle */}
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: 2,
+              background: 'var(--surface-warm)', padding: '3px',
+              borderRadius: 13, border: '1.5px solid var(--border)',
+            }}>
+              <button
+                onClick={() => navigate('/parent/daily')}
+                style={{
+                  padding: '5px 13px', borderRadius: 10, border: 'none', cursor: 'pointer',
+                  fontSize: 12, fontWeight: 500, transition: 'all 0.15s',
+                  color: isParent ? 'white' : 'var(--text-light)',
+                  background: isParent
+                    ? 'linear-gradient(135deg, var(--coral) 0%, var(--pink) 100%)'
+                    : 'transparent',
+                  boxShadow: isParent ? '0 2px 6px rgba(184,85,53,0.25)' : 'none',
+                  fontFamily: "'Outfit', sans-serif",
+                }}
+              >Parent</button>
+              <button
+                onClick={() => navigate('/clinician')}
+                style={{
+                  padding: '5px 13px', borderRadius: 10, border: 'none', cursor: 'pointer',
+                  fontSize: 12, fontWeight: 500, transition: 'all 0.15s',
+                  color: isClinician ? 'white' : 'var(--text-light)',
+                  background: isClinician
+                    ? 'linear-gradient(135deg, var(--mint) 0%, #306050 100%)'
+                    : 'transparent',
+                  boxShadow: isClinician ? '0 2px 6px rgba(72,122,103,0.25)' : 'none',
+                  fontFamily: "'Outfit', sans-serif",
+                }}
+              >Clinician</button>
+            </div>
+
+            <button
+              onClick={() => { localStorage.removeItem('demoRole'); navigate('/', { replace: true }) }}
+              style={{
+                fontSize: 12, color: 'var(--text-light)', background: 'none',
+                border: 'none', cursor: 'pointer', padding: 0,
+                fontFamily: "'Outfit', sans-serif",
+                transition: 'color 0.15s',
+              }}
+              onMouseEnter={e => e.currentTarget.style.color = 'var(--text-mid)'}
+              onMouseLeave={e => e.currentTarget.style.color = 'var(--text-light)'}
+            >
+              Sign out
+            </button>
+          </div>
         </div>
       </div>
     </nav>

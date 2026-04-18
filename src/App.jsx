@@ -3,17 +3,24 @@ import { RealtimeProvider } from './contexts/RealtimeContext'
 import Navbar from './components/Navbar'
 import Login from './pages/Login'
 import ParentView from './pages/ParentView'
+import DailyView from './pages/DailyView'
+import WeeklyView from './pages/WeeklyView'
+import StatsView from './pages/StatsView'
 import ClinicianView from './pages/ClinicianView'
 
 function AppLayout() {
-  const location = useLocation()
-  const hideNav = location.pathname === '/'
+  const { pathname } = useLocation()
   return (
     <>
-      {!hideNav && <Navbar />}
+      {pathname !== '/' && <Navbar />}
       <Routes>
         <Route path="/" element={<Login />} />
-        <Route path="/parent" element={<ParentView />} />
+        <Route path="/parent" element={<ParentView />}>
+          <Route index element={<Navigate to="daily" replace />} />
+          <Route path="daily" element={<DailyView />} />
+          <Route path="weekly" element={<WeeklyView />} />
+          <Route path="stats" element={<StatsView />} />
+        </Route>
         <Route path="/clinician" element={<ClinicianView />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

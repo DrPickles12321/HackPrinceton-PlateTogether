@@ -6,23 +6,19 @@ const DAY_LABELS = {
   fri: 'Friday', sat: 'Saturday', sun: 'Sunday',
 }
 
-const STATUS_CONFIG = {
-  okay:      { emoji: '✅', label: 'Okay',      selected: 'bg-green-100 border-green-500 text-green-900' },
-  difficult: { emoji: '😓', label: 'Difficult', selected: 'bg-yellow-100 border-yellow-500 text-yellow-900' },
-  refused:   { emoji: '❌', label: 'Refused',   selected: 'bg-red-100 border-red-500 text-red-900' },
-}
+const STATUS_OPTIONS = [
+  { key: 'okay',      emoji: '😌', label: 'Okay',      color: 'var(--mint)',  bg: 'var(--mint-light)',  border: 'var(--mint-mid)' },
+  { key: 'difficult', emoji: '😰', label: 'Difficult', color: 'var(--peach)', bg: 'var(--peach-light)', border: 'var(--peach-mid)' },
+  { key: 'refused',   emoji: '🙅', label: 'Refused',   color: 'var(--pink)',  bg: 'var(--pink-light)',  border: 'var(--pink-mid)' },
+]
 
 export default function MealLogModal({ isOpen, onClose, slot, foodName, onSubmit }) {
-  const [status, setStatus] = useState(null)
-  const [note, setNote] = useState('')
+  const [status, setStatus]             = useState(null)
+  const [note, setNote]                 = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   useEffect(() => {
-    if (isOpen) {
-      setStatus(null)
-      setNote('')
-      setIsSubmitting(false)
-    }
+    if (isOpen) { setStatus(null); setNote(''); setIsSubmitting(false) }
   }, [isOpen, slot?.id])
 
   async function handleSubmit() {
@@ -30,75 +26,114 @@ export default function MealLogModal({ isOpen, onClose, slot, foodName, onSubmit
     setIsSubmitting(true)
     try {
       await onSubmit({ slotId: slot.id, status, note: note.trim() || null })
-      setStatus(null)
-      setNote('')
-      onClose()
-    } catch (err) {
-      console.error('Failed to save meal log:', err)
-    } finally {
-      setIsSubmitting(false)
-    }
+      setStatus(null); setNote(''); onClose()
+    } catch {}
+    finally { setIsSubmitting(false) }
   }
-
-  const syncWarning = slot && !slot.id
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="How did this meal go?">
       {slot && (
-        <p className="text-sm text-gray-500 mb-4">
-          {DAY_LABELS[slot.day]} · {slot.meal_type.charAt(0).toUpperCase() + slot.meal_type.slice(1)} · {foodName}
+        <p style={{ fontSize: 13, color: 'var(--text-mid)', marginBottom: 20, lineHeight: 1.5 }}>
+          {DAY_LABELS[slot.day]} · {slot.meal_type.charAt(0).toUpperCase() + slot.meal_type.slice(1)}
+          {foodName ? ` · ${foodName}` : ''}
         </p>
       )}
 
-      <div className="flex gap-2 mb-4">
-        {Object.entries(STATUS_CONFIG).map(([key, cfg]) => (
-          <button
-            key={key}
-            onClick={() => setStatus(key)}
-            aria-pressed={status === key}
-            className={`flex-1 border rounded-lg py-3 text-sm font-medium transition-colors ${
-              status === key ? cfg.selected : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50'
-            }`}
-          >
-            {cfg.emoji} {cfg.label}
-          </button>
-        ))}
+      {/* Status buttons */}
+      <div style={{ display: 'flex', gap: 9, marginBottom: 20 }}>
+        {STATUS_OPTIONS.map(opt => {
+          const selected = status === opt.key
+          return (
+            <button
+              key={opt.key}
+              onClick={() => setStatus(opt.key)}
+              aria-pressed={selected}
+              style={{
+                flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center',
+                gap: 7, padding: '16px 8px', borderRadius: 16,
+                border: `1.5px solid ${selected ? opt.border : 'var(--border)'}`,
+                background: selected ? opt.bg : 'white',
+                cursor: 'pointer', transition: 'all 0.15s',
+                boxShadow: selected ? `0 3px 12px ${opt.color}28` : '0 1px 4px rgba(39,23,6,0.05)',
+                fontFamily: "'Outfit', sans-serif",
+              }}
+            >
+              <span style={{ fontSize: 28 }}>{opt.emoji}</span>
+              <span style={{ fontSize: 12, fontWeight: 600, color: selected ? opt.color : 'var(--text-light)' }}>
+                {opt.label}
+              </span>
+            </button>
+          )
+        })}
       </div>
 
-      <div className="mb-4">
-        <label className="block text-sm font-medium text-gray-700 mb-1">
+      {/* Note */}
+      <div style={{ marginBottom: 20 }}>
+        <label style={{
+          display: 'block', fontSize: 11, fontWeight: 700, color: 'var(--text-light)',
+          textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 9,
+        }}>
           Add a note (optional)
         </label>
         <textarea
           value={note}
           onChange={e => setNote(e.target.value)}
-          placeholder="Anything your clinician should know? (optional)"
+          placeholder="Anything your clinician should know?"
           rows={3}
           maxLength={500}
-          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 resize-none"
+          style={{
+            width: '100%', border: '1.5px solid var(--border)', borderRadius: 12,
+            padding: '10px 13px', fontSize: 13, color: 'var(--text-dark)',
+            resize: 'none', outline: 'none', fontFamily: "'Outfit', sans-serif",
+            lineHeight: 1.55, boxSizing: 'border-box', background: 'var(--surface-warm)',
+            transition: 'border-color 0.15s, box-shadow 0.15s',
+          }}
+          onFocus={e => {
+            e.target.style.borderColor = 'var(--coral)'
+            e.target.style.boxShadow = '0 0 0 3px rgba(184,85,53,0.10)'
+          }}
+          onBlur={e => {
+            e.target.style.borderColor = 'var(--border)'
+            e.target.style.boxShadow = 'none'
+          }}
         />
-        <p className="text-xs text-gray-400 text-right mt-1">{note.length} / 500</p>
+        <p style={{ fontSize: 11, color: 'var(--text-light)', textAlign: 'right', marginTop: 4 }}>
+          {note.length} / 500
+        </p>
       </div>
 
-      {syncWarning && (
-        <p className="text-xs text-amber-600 mb-2">
+      {slot && !slot.id && (
+        <p style={{ fontSize: 12, color: 'var(--peach)', marginBottom: 12 }}>
           This meal slot is still syncing. Try again in a moment.
         </p>
       )}
 
-      <div className="flex justify-end gap-2">
+      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
         <button
           onClick={onClose}
-          className="px-4 py-2 text-sm rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200"
-        >
-          Cancel
-        </button>
+          style={{
+            padding: '10px 20px', fontSize: 13, borderRadius: 12,
+            border: '1.5px solid var(--border)', background: 'white',
+            cursor: 'pointer', color: 'var(--text-mid)', fontFamily: "'Outfit', sans-serif",
+          }}
+        >Cancel</button>
         <button
           onClick={handleSubmit}
-          disabled={!status || isSubmitting || syncWarning}
-          className="px-4 py-2 text-sm rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+          disabled={!status || isSubmitting || (slot && !slot.id)}
+          style={{
+            padding: '10px 22px', fontSize: 13, borderRadius: 12, border: 'none',
+            background: status
+              ? 'linear-gradient(135deg, var(--coral) 0%, var(--pink) 100%)'
+              : 'var(--border)',
+            color: status ? 'white' : 'var(--text-light)',
+            cursor: status ? 'pointer' : 'not-allowed',
+            fontWeight: 600, fontFamily: "'Outfit', sans-serif",
+            transition: 'all 0.15s',
+            boxShadow: status ? '0 3px 10px rgba(184,85,53,0.28)' : 'none',
+          }}
         >
-          {isSubmitting ? 'Saving...' : 'Save log'}
+          {isSubmitting ? 'Saving…' : 'Save log'}
         </button>
       </div>
     </Modal>

@@ -1,48 +1,57 @@
 import { useEffect, useRef } from 'react'
 
-export default function Modal({ isOpen, onClose, title, children, maxWidth = 'max-w-md' }) {
+export default function Modal({ isOpen, onClose, title, children }) {
   const closeBtnRef = useRef(null)
 
   useEffect(() => {
     if (!isOpen) return
     document.body.style.overflow = 'hidden'
     closeBtnRef.current?.focus()
-
-    function handleKeyDown(e) {
-      if (e.key === 'Escape') onClose()
-    }
+    function handleKeyDown(e) { if (e.key === 'Escape') onClose() }
     document.addEventListener('keydown', handleKeyDown)
-    return () => {
-      document.removeEventListener('keydown', handleKeyDown)
-      document.body.style.overflow = ''
-    }
+    return () => { document.removeEventListener('keydown', handleKeyDown); document.body.style.overflow = '' }
   }, [isOpen, onClose])
 
   if (!isOpen) return null
 
-  const titleId = 'modal-title'
-
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+      style={{
+        position: 'fixed', inset: 0, zIndex: 50,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        background: 'rgba(39,23,6,0.38)', padding: 16,
+        backdropFilter: 'blur(4px)',
+      }}
       onClick={e => { if (e.target === e.currentTarget) onClose() }}
     >
       <div
         role="dialog"
         aria-modal="true"
-        aria-labelledby={titleId}
-        className={`bg-white rounded-xl shadow-2xl p-6 w-full ${maxWidth} relative`}
+        style={{
+          background: 'white', borderRadius: 24,
+          boxShadow: '0 24px 64px rgba(39,23,6,0.22)',
+          padding: '30px', width: '100%', maxWidth: 420, position: 'relative',
+          border: '1.5px solid var(--border)',
+        }}
       >
-        <div className="flex items-center justify-between mb-4">
-          <h2 id={titleId} className="text-lg font-semibold text-gray-900">{title}</h2>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 }}>
+          <h2 className="font-lora" style={{ fontSize: 20, fontWeight: 500, color: 'var(--text-dark)', lineHeight: 1.2 }}>
+            {title}
+          </h2>
           <button
             ref={closeBtnRef}
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 text-xl leading-none px-1"
             aria-label="Close"
-          >
-            ×
-          </button>
+            style={{
+              width: 32, height: 32, borderRadius: 10, border: '1.5px solid var(--border)',
+              background: 'var(--surface-warm)', cursor: 'pointer', fontSize: 18,
+              color: 'var(--text-mid)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+              lineHeight: 1, flexShrink: 0,
+              transition: 'background 0.15s',
+            }}
+            onMouseEnter={e => e.currentTarget.style.background = 'var(--border)'}
+            onMouseLeave={e => e.currentTarget.style.background = 'var(--surface-warm)'}
+          >×</button>
         </div>
         {children}
       </div>
