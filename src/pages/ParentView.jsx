@@ -5,14 +5,11 @@ import { DEMO_FAMILY_ID } from '../lib/constants'
 import { useToast } from '../hooks/useToast'
 import { useRealtime } from '../hooks/useRealtime'
 import { useRealtimeStatus } from '../contexts/RealtimeContext'
-import SupplementChecklist from '../components/SupplementChecklist'
-import NotesPanel from '../components/NotesPanel'
 
 export default function ParentView() {
   const [mealSlots, setMealSlots] = useState([])
   const [foodItems, setFoodItems] = useState([])
   const [mealLogs, setMealLogs] = useState([])
-  const [notes, setNotes] = useState([])
   const { showToast } = useToast()
   const { setStatus } = useRealtimeStatus()
 
@@ -24,9 +21,6 @@ export default function ParentView() {
       .then(({ data }) => { if (data) setFoodItems(data) })
     supabase.from('meal_logs').select('*')
       .then(({ data }) => { if (data) setMealLogs(data) })
-    supabase.from('clinician_notes').select('*').eq('family_id', DEMO_FAMILY_ID)
-      .order('created_at', { ascending: false })
-      .then(({ data }) => { if (data) setNotes(data) })
     return () => setStatus('disconnected')
   }, [setStatus])
 
@@ -52,14 +46,6 @@ export default function ParentView() {
       setFoodItems(c => c.filter(f => f.id !== row.id))
       setMealSlots(c => c.map(s => s.assigned_food_id === row.id ? { ...s, assigned_food_id: null } : s))
     },
-  })
-
-  useRealtime({
-    table: 'clinician_notes',
-    familyId: DEMO_FAMILY_ID,
-    onInsert: row => setNotes(c => [row, ...c]),
-    onUpdate: row => setNotes(c => c.map(n => n.id === row.id ? row : n)),
-    onDelete: row => setNotes(c => c.filter(n => n.id !== row.id)),
   })
 
   async function updateMealSlot(slotId, assignedFoodId) {
@@ -96,35 +82,9 @@ export default function ParentView() {
     showToast('Meal logged!', 'success')
   }
 
-  async function handleMarkRead(noteId) {
-    setNotes(c => c.map(n => n.id === noteId ? { ...n, is_read: true } : n))
-    await supabase.from('clinician_notes').update({ is_read: true }).eq('id', noteId)
-  }
-
-  async function handleDeleteNote(noteId) {
-    setNotes(c => c.filter(n => n.id !== noteId))
-    await supabase.from('clinician_notes').delete().eq('id', noteId)
-  }
-
   return (
     <div className="max-w-7xl mx-auto p-4 md:p-6">
-      <div className="grid grid-cols-1 xl:grid-cols-[1fr_280px] gap-4 xl:gap-6">
-        <main>
-          <Outlet context={{ mealSlots, foodItems, mealLogs, updateMealSlot, insertMealLog }} />
-        </main>
-        <aside className="xl:sticky xl:top-[72px] xl:self-start xl:max-h-[calc(100vh-88px)] xl:overflow-y-auto space-y-4">
-          <NotesPanel
-            notes={notes}
-            mealSlots={mealSlots}
-            foodItems={foodItems}
-            mode="parent"
-            onSend={() => {}}
-            onMarkRead={handleMarkRead}
-            onDelete={handleDeleteNote}
-          />
-          <SupplementChecklist mealSlots={mealSlots} foodItems={foodItems} />
-        </aside>
-      </div>
+      <Outlet context={{ mealSlots, foodItems, mealLogs, updateMealSlot, insertMealLog }} />
     </div>
   )
 }
