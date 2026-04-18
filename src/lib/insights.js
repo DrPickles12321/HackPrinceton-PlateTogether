@@ -1,6 +1,94 @@
-import { lookupNutrition } from './nutritionService'
+import { lookupNutrition, aggregateMealNutrition } from './nutritionService'
 
 const ONE_WEEK_MS = 7 * 24 * 60 * 60 * 1000
+
+// Recommended daily intakes for anorexia recovery (conservative estimates)
+const RECOMMENDED_DAILY = {
+  calcium_mg: 1000,    // mg/day
+  iron_mg: 18,         // mg/day (for women)
+  vitamin_d_mcg: 15,   // mcg/day
+}
+
+// Convert to weekly totals
+const RECOMMENDED_WEEKLY = {
+  calcium_mg: RECOMMENDED_DAILY.calcium_mg * 7,
+  iron_mg: RECOMMENDED_DAILY.iron_mg * 7,
+  vitamin_d_mcg: RECOMMENDED_DAILY.vitamin_d_mcg * 7,
+}
+
+export function computeSupplementRecommendations({ mealSlots, foodItems }) {
+  const filledSlots = mealSlots.filter(s => s.assigned_food_id)
+  if (filledSlots.length === 0) return []
+
+  const nutritionInfos = filledSlots.map(slot => {
+    const food = foodItems.find(f => f.id === slot.assigned_food_id)
+    if (!food) return null
+    return lookupNutrition(food.name, food.category)
+  }).filter(Boolean)
+
+  const weeklyTotals = aggregateMealNutrition(nutritionInfos)
+
+  const recommendations = []
+
+  // Check each nutrient
+  if (weeklyTotals.calcium_mg < RECOMMENDED_WEEKLY.calcium_mg * 0.7) { // Less than 70% of recommended
+    recommendations.push({
+      nutrient: 'Calcium',
+      current: weeklyTotals.calcium_mg,
+      recommended: RECOMMENDED_WEEKLY.calcium_mg,
+      supplement: 'Calcium citrate or carbonate (500-1000mg/day)',
+      reason: 'Supports bone health and muscle function',
+    })
+  }
+
+  if (weeklyTotals.iron_mg < RECOMMENDED_WEEKLY.iron_mg * 0.7) {
+    recommendations.push({
+      nutrient: 'Iron',
+      current: weeklyTotals.iron_mg,
+      recommended: RECOMMENDED_WEEKLY.iron_mg,
+      supplement: 'Iron bisglycinate or ferrous sulfate (18-65mg/day)',
+      reason: 'Prevents anemia and supports energy levels',
+    })
+  }
+
+  if (weeklyTotals.vitamin_d_mcg < RECOMMENDED_WEEKLY.vitamin_d_mcg * 0.7) {
+    recommendations.push({
+      nutrient: 'Vitamin D',
+      current: weeklyTotals.vitamin_d_mcg,
+      recommended: RECOMMENDED_WEEKLY.vitamin_d_mcg,
+      supplement: 'Vitamin D3 (1000-2000 IU/day)',
+      reason: 'Essential for calcium absorption and immune function',
+    })
+  }
+
+  // Always recommend a multivitamin as baseline
+  recommendations.push({
+    nutrient: 'Multivitamin',
+    current: null,
+    recommended: null,
+    supplement: 'Complete multivitamin with minerals',
+    reason: 'Provides comprehensive micronutrient support',
+  })
+
+  // Additional common recommendations for AN recovery
+  recommendations.push({
+    nutrient: 'Omega-3 Fatty Acids',
+    current: null,
+    recommended: null,
+    supplement: 'Fish oil or algae-based EPA/DHA (1000-2000mg/day)',
+    reason: 'Supports brain health and reduces inflammation',
+  })
+
+  recommendations.push({
+    nutrient: 'Probiotics',
+    current: null,
+    recommended: null,
+    supplement: 'Broad-spectrum probiotic (daily)',
+    reason: 'Supports gut health and digestion',
+  })
+
+  return recommendations
+}
 
 export function computeNutritionInsights({ mealSlots, foodItems }) {
   const filledSlots = mealSlots.filter(s => s.assigned_food_id)
