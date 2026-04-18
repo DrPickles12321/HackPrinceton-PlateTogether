@@ -27,6 +27,7 @@ export default function ParentView() {
     try { return JSON.parse(localStorage.getItem('parentMealStatusesByDate') || '{}') }
     catch { return {} }
   })
+  const [weekOffset, setWeekOffset] = useState(0)
   const { showToast } = useToast()
   const { setStatus } = useRealtimeStatus()
 
@@ -168,7 +169,7 @@ export default function ParentView() {
 
   return (
     <div style={{ width: '100%', padding: '16px 24px' }}>
-      <Outlet context={{ mealSlots, foodItems, mealLogs, clinicianNotes, parentNotes, clinicianNotesRead, mealStatuses, savedClinicianNotes, updateMealSlot, insertMealLog, saveParentNote, markClinicianNoteRead, saveClinicianNote, unsaveClinicianNote, clearAllSavedNotes, setMealStatus }} />
+      <Outlet context={{ mealSlots, foodItems, mealLogs, clinicianNotes, parentNotes, clinicianNotesRead, mealStatuses, savedClinicianNotes, weekOffset, setWeekOffset, updateMealSlot, insertMealLog, saveParentNote, markClinicianNoteRead, saveClinicianNote, unsaveClinicianNote, clearAllSavedNotes, setMealStatus }} />
     </div>
   )
 }

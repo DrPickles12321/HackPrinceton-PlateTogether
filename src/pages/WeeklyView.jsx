@@ -1,6 +1,7 @@
 import { useMemo, useState, useEffect, useRef, useCallback } from 'react'
 import { useOutletContext } from 'react-router-dom'
 import { lookupNutrition } from '../lib/nutritionService'
+import { getWeekDates } from '../lib/constants'
 
 const DAYS = [
   { key: 'mon', label: 'Mon', full: 'Monday'    },
@@ -12,25 +13,7 @@ const DAYS = [
   { key: 'sun', label: 'Sun', full: 'Sunday'    },
 ]
 
-const DAY_KEYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']
 const TODAY_ISO = new Date().toISOString().slice(0, 10)
-
-function getWeekDates() {
-  const today = new Date()
-  const dow = today.getDay()
-  const diff = dow === 0 ? -6 : 1 - dow
-  const monday = new Date(today)
-  monday.setDate(today.getDate() + diff)
-  const result = {}
-  DAY_KEYS.forEach((key, i) => {
-    const d = new Date(monday)
-    d.setDate(monday.getDate() + i)
-    result[key] = d.toISOString().slice(0, 10)
-  })
-  return result
-}
-
-const WEEK_DATES = getWeekDates()
 
 const MEALS = [
   { key: 'breakfast', label: 'B', icon: '☀️' },
@@ -175,11 +158,13 @@ function DayPopover({ day, macros, style, popoverRef }) {
 // ─── Main view ────────────────────────────────────────────────────────────────
 
 export default function WeeklyView() {
-  const { mealSlots, foodItems, mealLogs } = useOutletContext()
+  const { mealSlots, foodItems, mealLogs, weekOffset = 0, setWeekOffset } = useOutletContext()
   const [openDay, setOpenDay]         = useState(null)
   const [popoverPos, setPopoverPos]   = useState({ top: 0, left: 0 })
   const popoverRef  = useRef(null)
   const headerRefs  = useRef({})
+
+  const weekDates = useMemo(() => getWeekDates(weekOffset), [weekOffset])
 
   // ── close on outside click ──
   useEffect(() => {
@@ -200,15 +185,15 @@ export default function WeeklyView() {
     return map
   }, [mealLogs])
 
-  // ── compute macros for a day (single calculation, passed to both pie and text) ──
+  // ── compute macros for a day ──
   const macrosByDay = useMemo(() => {
+    const allStored = (() => { try { return JSON.parse(localStorage.getItem('parentMealItemsByDate') || '{}') } catch { return {} } })()
     const result = {}
     for (const day of DAYS) {
-      const daySlots = mealSlots.filter(s => s.day === day.key && s.assigned_food_id)
+      const dateIso = weekDates[day.key]
+      const localItems = Object.values(allStored[dateIso] || {}).flat()
       let protein = 0, carbs = 0, fruitsVeggies = 0
-      for (const slot of daySlots) {
-        const food = foodItems.find(f => f.id === slot.assigned_food_id)
-        if (!food) continue
+      for (const food of localItems) {
         const info = lookupNutrition(food.name, food.category)
         protein       += info.protein_g || 0
         carbs         += info.carbs_g   || 0
@@ -221,7 +206,7 @@ export default function WeeklyView() {
       }
     }
     return result
-  }, [mealSlots, foodItems])
+  }, [weekDates, mealSlots, foodItems])
 
   // ── day header click → compute viewport-safe position ──
   const handleDayClick = useCallback((dayKey) => {
@@ -251,9 +236,34 @@ export default function WeeklyView() {
         {/* Header */}
         <div style={{ marginBottom: 20 }}>
           <h2 className="font-lora" style={{ fontSize: 26, fontWeight: 400, color: 'var(--text-dark)', marginBottom: 5, lineHeight: 1.15 }}>
-            This Week at a Glance
+            Week at a Glance
           </h2>
           <p style={{ fontSize: 14, color: 'var(--text-mid)' }}>Click a day header for the daily nutrition summary</p>
+        </div>
+
+        {/* Week navigator */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+          <button
+            onClick={() => setWeekOffset(o => o - 1)}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-light)', fontSize: 18, padding: '0 4px', fontFamily: 'inherit' }}
+          >‹</button>
+          <span style={{ fontSize: 12, color: weekOffset === 0 ? 'var(--coral)' : 'var(--text-light)', fontWeight: 600 }}>
+            {weekOffset === 0 ? 'This week' : weekOffset === -1 ? 'Last week' : weekOffset === 1 ? 'Next week' : (() => {
+              const mon = weekDates['mon']
+              const sun = weekDates['sun']
+              return `${new Date(mon + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} – ${new Date(sun + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`
+            })()}
+            {weekOffset !== 0 && (
+              <button
+                onClick={() => setWeekOffset(0)}
+                style={{ marginLeft: 8, background: 'none', border: '1px solid var(--border-mid)', borderRadius: 6, cursor: 'pointer', color: 'var(--coral)', fontSize: 10, fontWeight: 600, padding: '2px 7px', fontFamily: 'inherit' }}
+              >Today</button>
+            )}
+          </span>
+          <button
+            onClick={() => setWeekOffset(o => o + 1)}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-light)', fontSize: 18, padding: '0 4px', fontFamily: 'inherit' }}
+          >›</button>
         </div>
 
         {/* Legend */}
@@ -294,7 +304,7 @@ export default function WeeklyView() {
           }}>
             <div />
             {DAYS.map(day => {
-              const dateIso = WEEK_DATES[day.key]
+              const dateIso = weekDates[day.key]
               const isToday = dateIso === TODAY_ISO
               const dateLabel = new Date(dateIso + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
               return (

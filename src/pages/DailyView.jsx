@@ -6,6 +6,7 @@ import FoodCardPreview from '../components/FoodCardPreview'
 import SupplementChecklist from '../components/SupplementChecklist'
 import { lookupNutrition } from '../lib/nutritionService'
 import { useNutritionalTargets } from '../contexts/NutritionalTargetsContext'
+import { getWeekDates } from '../lib/constants'
 
 const DAYS = [
   { key: 'mon', label: 'Mon' },
@@ -44,27 +45,10 @@ const RING_NUTRIENTS = [
 ]
 
 const EMPTY_MEAL_ITEMS = { breakfast: [], lunch: [], snack: [], dinner: [] }
-const DAY_KEYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']
 
 function getTodayKey() {
   const days = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat']
   return days[new Date().getDay()]
-}
-
-// Returns { mon: '2026-04-21', ... } offset weeks from current week (0 = this week)
-function getWeekDates(offset = 0) {
-  const today = new Date()
-  const dow = today.getDay()
-  const diff = dow === 0 ? -6 : 1 - dow
-  const monday = new Date(today)
-  monday.setDate(today.getDate() + diff + offset * 7)
-  const result = {}
-  DAY_KEYS.forEach((key, i) => {
-    const d = new Date(monday)
-    d.setDate(monday.getDate() + i)
-    result[key] = d.toISOString().slice(0, 10)
-  })
-  return result
 }
 
 const TODAY_ISO = new Date().toISOString().slice(0, 10)
@@ -752,9 +736,8 @@ function ClinicianNotesSidebar({ clinicianNotes, clinicianNotesRead, markClinici
 // ─── Main view ────────────────────────────────────────────────────────────────
 
 export default function DailyView() {
-  const { mealSlots, foodItems, mealLogs, clinicianNotes = [], parentNotes = [], clinicianNotesRead = {}, mealStatuses = {}, savedClinicianNotes = [], insertMealLog, saveParentNote, markClinicianNoteRead, saveClinicianNote, unsaveClinicianNote, clearAllSavedNotes, setMealStatus } = useOutletContext()
+  const { mealSlots, foodItems, mealLogs, clinicianNotes = [], parentNotes = [], clinicianNotesRead = {}, mealStatuses = {}, savedClinicianNotes = [], weekOffset = 0, setWeekOffset, insertMealLog, saveParentNote, markClinicianNoteRead, saveClinicianNote, unsaveClinicianNote, clearAllSavedNotes, setMealStatus } = useOutletContext()
   const [selectedDay, setSelectedDay] = useState(getTodayKey)
-  const [weekOffset, setWeekOffset] = useState(0)
   const [activeDrag, setActiveDrag] = useState(null)
   const [supplementLog, setSupplementLog] = useState(() => {
     try { return JSON.parse(window.localStorage.getItem('supplementLog') || '{}') }
