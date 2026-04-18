@@ -362,64 +362,94 @@ function ParentNoteSection({ note, selectedDate, onSave }) {
   }
 
   return (
-    <div style={{
-      marginTop: 24,
-      background: 'white', borderRadius: 16,
-      border: '1.5px solid var(--border)',
-      boxShadow: '0 2px 12px rgba(39,23,6,0.06)',
-      padding: '20px 24px',
-    }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-        <div>
-          <div style={{ fontWeight: 700, fontSize: 15, color: 'var(--text-dark)' }}>Parent Note</div>
-          <div style={{ fontSize: 12, color: 'var(--text-light)', marginTop: 2 }}>Leave a note for your care team</div>
+    <div style={{ marginTop: 24, position: 'relative', paddingTop: 14 }}>
+      {/* Tape label */}
+      <div style={{
+        position: 'absolute', top: 0, left: '50%',
+        transform: 'translateX(-50%) rotate(-1deg)',
+        background: '#e8dcc8', borderRadius: 4,
+        padding: '3px 18px',
+        fontSize: 11, fontWeight: 700, color: '#7a6a52',
+        letterSpacing: '0.5px', textTransform: 'uppercase',
+        zIndex: 1, boxShadow: '0 1px 3px rgba(0,0,0,0.10)',
+        fontFamily: "'Outfit', sans-serif",
+      }}>Your Note</div>
+
+      {/* Notebook card */}
+      <div style={{
+        background: 'white', border: '1px solid var(--border)',
+        borderRadius: 16, overflow: 'hidden',
+        boxShadow: '0 2px 12px rgba(39,23,6,0.06)',
+      }}>
+        {/* Header */}
+        <div style={{
+          padding: '12px 20px 8px',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          borderBottom: '1px solid var(--border)',
+        }}>
+          <span style={{ fontWeight: 700, fontSize: 15, color: 'var(--coral)', fontFamily: "'Outfit', sans-serif" }}>
+            Parent Note
+          </span>
+          {isRead && (
+            <span style={{ fontSize: 11, color: 'var(--mint)', fontWeight: 500 }}>✓ Clinician read</span>
+          )}
         </div>
-        {isRead && (
-          <div style={{
-            display: 'flex', alignItems: 'center', gap: 6,
-            background: 'var(--mint-light)', borderRadius: 10, padding: '5px 10px',
-            border: '1px solid var(--mint-mid)',
-          }}>
-            <div style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--mint)', flexShrink: 0 }} />
-            <span style={{ fontSize: 11, color: 'var(--mint)', fontWeight: 500 }}>Clinician read</span>
+
+        {/* Ruled writing area */}
+        <div style={{
+          backgroundImage: 'repeating-linear-gradient(transparent, transparent 27px, #e8e0d4 27px, #e8e0d4 28px)',
+          backgroundSize: '100% 28px', backgroundPositionY: '4px',
+          display: 'flex',
+        }}>
+          <div style={{ width: 2, background: '#f4b8b8', flexShrink: 0, marginLeft: 20, marginRight: 12 }} />
+          <div style={{ flex: 1, padding: '10px 16px 10px 0' }}>
+            <textarea
+              value={body}
+              onChange={e => { setBody(e.target.value); setSaveStatus('idle') }}
+              placeholder="Write a note for your care team..."
+              rows={4}
+              maxLength={1000}
+              style={{
+                width: '100%', border: 'none', background: 'transparent',
+                resize: 'none', outline: 'none',
+                fontSize: 13, fontFamily: "'Outfit', sans-serif",
+                color: 'var(--text-dark)', lineHeight: '28px',
+                padding: 0, boxSizing: 'border-box',
+              }}
+            />
           </div>
-        )}
-      </div>
-      <textarea
-        value={body}
-        onChange={e => { setBody(e.target.value); setSaveStatus('idle') }}
-        placeholder="Write a note for your care team..."
-        rows={3}
-        maxLength={1000}
-        style={{
-          width: '100%', border: '1.5px solid var(--border-mid)', borderRadius: 10,
-          padding: '10px 12px', fontSize: 13, fontFamily: "'Outfit', sans-serif",
-          resize: 'none', outline: 'none', boxSizing: 'border-box', color: 'var(--text-dark)',
-          lineHeight: 1.6,
-        }}
-      />
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 8 }}>
-        <span style={{ fontSize: 11, color: 'var(--text-light)' }}>{body.length} / 1000</span>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          {saveStatus === 'saved' && !isDirty && (
-            <span style={{ fontSize: 11, color: 'var(--mint)', fontWeight: 500 }}>Saved</span>
-          )}
-          {saveStatus === 'error' && (
-            <span style={{ fontSize: 11, color: 'var(--pink)', fontWeight: 500 }}>Failed to save</span>
-          )}
-          <button
-            onClick={handleSave}
-            disabled={!isDirty || isSaving}
-            style={{
-              background: 'linear-gradient(135deg, var(--coral) 0%, var(--pink) 100%)',
-              color: 'white', border: 'none', borderRadius: 10, padding: '7px 16px',
-              fontSize: 12, fontWeight: 600, cursor: (!isDirty || isSaving) ? 'default' : 'pointer',
-              opacity: (!isDirty || isSaving) ? 0.4 : 1,
-              fontFamily: "'Outfit', sans-serif", transition: 'opacity 0.15s',
-            }}
-          >
-            {isSaving ? 'Saving…' : note?.id ? 'Update note' : 'Save note'}
-          </button>
+        </div>
+
+        {/* Footer */}
+        <div style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          padding: '8px 20px 12px',
+          borderTop: '1px solid var(--border)',
+        }}>
+          <span style={{ fontSize: 11, color: 'var(--text-light)' }}>{body.length} / 1000</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            {saveStatus === 'saved' && !isDirty && (
+              <span style={{ fontSize: 11, color: 'var(--mint)', fontWeight: 500 }}>✓ Saved</span>
+            )}
+            {saveStatus === 'error' && (
+              <span style={{ fontSize: 11, color: 'var(--pink)', fontWeight: 500 }}>Failed to save</span>
+            )}
+            <button
+              onClick={handleSave}
+              disabled={!isDirty || isSaving}
+              style={{
+                background: !isDirty || isSaving ? 'rgba(184,85,53,0.15)' : 'linear-gradient(135deg, var(--coral) 0%, var(--pink) 100%)',
+                color: !isDirty || isSaving ? 'var(--text-light)' : 'white',
+                border: 'none', borderRadius: 20, padding: '6px 18px',
+                fontSize: 12, fontWeight: 600,
+                cursor: (!isDirty || isSaving) ? 'default' : 'pointer',
+                fontFamily: "'Outfit', sans-serif", transition: 'all 0.15s',
+                boxShadow: !isDirty || isSaving ? 'none' : '0 2px 8px rgba(184,85,53,0.28)',
+              }}
+            >
+              {isSaving ? 'Saving…' : note?.id ? 'Update note' : 'Save note'}
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -484,6 +514,10 @@ export default function DailyView() {
   const [selectedDay, setSelectedDay] = useState(getTodayKey)
   const [weekOffset, setWeekOffset] = useState(0)
   const [activeDrag, setActiveDrag] = useState(null)
+  const [supplementLog, setSupplementLog] = useState(() => {
+    try { return JSON.parse(window.localStorage.getItem('supplementLog') || '{}') }
+    catch { return {} }
+  })
   const [allMealItems, setAllMealItems] = useState(() => {
     try {
       return JSON.parse(window.localStorage.getItem('parentMealItemsByDate') || '{}')
@@ -491,6 +525,19 @@ export default function DailyView() {
   })
 
   const weekDates = useMemo(() => getWeekDates(weekOffset), [weekOffset])
+  const checkedSupplements = useMemo(() => new Set(supplementLog[weekDates[selectedDay]] || []), [supplementLog, weekDates, selectedDay])
+
+  function handleToggleSupplement(nutrient) {
+    const date = weekDates[selectedDay]
+    setSupplementLog(prev => {
+      const existing = new Set(prev[date] || [])
+      if (existing.has(nutrient)) existing.delete(nutrient)
+      else existing.add(nutrient)
+      const next = { ...prev, [date]: Array.from(existing) }
+      window.localStorage.setItem('supplementLog', JSON.stringify(next))
+      return next
+    })
+  }
   const [mealTimes, setMealTimes] = useState(() => {
     try {
       const stored = window.localStorage.getItem('parentDailyMealTimes')
@@ -719,58 +766,86 @@ export default function DailyView() {
             <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-dark)' }}>Parent</div>
           </div>
 
-          <div style={{ marginBottom: 22 }}>
+          <div style={{ marginBottom: 22, position: 'relative', paddingTop: 14 }}>
+            {/* Tape label */}
             <div style={{
-              fontSize: 10, fontWeight: 700, color: 'var(--text-light)',
-              letterSpacing: '0.7px', textTransform: 'uppercase', marginBottom: 9,
-            }}>Clinician Notes</div>
-            {(() => {
-              const today = new Date().toISOString().slice(0, 10)
-              const todayNote = clinicianNotes.find(n => n.created_at?.slice(0, 10) === today)
-              const latest = todayNote || clinicianNotes[0] || null
-              if (!latest) return (
-                <div style={{
-                  background: 'var(--peach-light)', borderRadius: 14, padding: '13px',
-                  fontSize: 12, color: 'var(--text-light)', lineHeight: 1.6, fontStyle: 'italic',
-                  border: '1px solid var(--peach-mid)',
-                }}>No notes yet.</div>
-              )
-              const isRead = !!clinicianNotesRead[latest.id]
-              return (
-                <div style={{
-                  background: isRead ? 'var(--peach-light)' : '#FFF7ED',
-                  borderRadius: 14, padding: '13px',
-                  border: isRead ? '1px solid var(--peach-mid)' : '1.5px solid #FBB54A',
-                }}>
-                  {!isRead && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 7 }}>
-                      <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#F59E0B', flexShrink: 0, display: 'block' }} />
-                      <span style={{ fontSize: 10, fontWeight: 700, color: '#D97706', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Unread</span>
+              position: 'absolute', top: 0, left: '50%',
+              transform: 'translateX(-50%) rotate(-1deg)',
+              background: '#e8dcc8', borderRadius: 4,
+              padding: '3px 14px',
+              fontSize: 10, fontWeight: 700, color: '#7a6a52',
+              letterSpacing: '0.5px', textTransform: 'uppercase',
+              zIndex: 1, boxShadow: '0 1px 3px rgba(0,0,0,0.10)',
+              fontFamily: "'Outfit', sans-serif", whiteSpace: 'nowrap',
+            }}>From Clinician</div>
+
+            {/* Notebook card */}
+            <div style={{
+              background: 'white', border: '1px solid var(--border)',
+              borderRadius: 14, overflow: 'hidden',
+              boxShadow: '0 2px 8px rgba(39,23,6,0.06)',
+            }}>
+              <div style={{ padding: '10px 12px 6px' }}>
+                <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--coral)', fontFamily: "'Outfit', sans-serif" }}>
+                  Clinician Notes
+                </span>
+              </div>
+
+              {/* Ruled area with margin */}
+              {(() => {
+                const today = new Date().toISOString().slice(0, 10)
+                const todayNote = clinicianNotes.find(n => n.created_at?.slice(0, 10) === today)
+                const latest = todayNote || clinicianNotes[0] || null
+                const isRead = latest ? !!clinicianNotesRead[latest.id] : false
+                return (
+                  <div style={{
+                    backgroundImage: 'repeating-linear-gradient(transparent, transparent 27px, #e8e0d4 27px, #e8e0d4 28px)',
+                    backgroundSize: '100% 28px', backgroundPositionY: '4px',
+                    display: 'flex', minHeight: 84,
+                  }}>
+                    <div style={{ width: 2, background: '#f4b8b8', flexShrink: 0, marginLeft: 10, marginRight: 8 }} />
+                    <div style={{ flex: 1, padding: '8px 10px 8px 0' }}>
+                      {!latest ? (
+                        <div style={{ display: 'flex', gap: 5, alignItems: 'flex-start' }}>
+                          <span style={{ color: 'rgba(184,85,53,0.3)', fontSize: 14, lineHeight: '28px' }}>○</span>
+                          <p style={{ margin: 0, fontSize: 12, color: 'var(--text-light)', fontStyle: 'italic', lineHeight: '28px' }}>No notes yet.</p>
+                        </div>
+                      ) : (
+                        <>
+                          {!isRead && (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 4 }}>
+                              <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#F59E0B', flexShrink: 0, display: 'block' }} />
+                              <span style={{ fontSize: 9, fontWeight: 700, color: '#D97706', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Unread</span>
+                            </div>
+                          )}
+                          <div style={{ display: 'flex', gap: 5, alignItems: 'flex-start' }}>
+                            <span style={{ color: 'var(--coral)', fontSize: 14, lineHeight: '28px', flexShrink: 0 }}>○</span>
+                            <p style={{ margin: 0, fontSize: 12, color: 'var(--text-mid)', lineHeight: '28px' }}>{latest.body}</p>
+                          </div>
+                          {latest.created_at && (
+                            <p style={{ margin: '4px 0 0', fontSize: 10, color: 'var(--text-light)' }}>
+                              {new Date(latest.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                            </p>
+                          )}
+                          {isRead ? (
+                            <span style={{ fontSize: 10, color: 'var(--mint)', fontWeight: 500, display: 'block', marginTop: 6 }}>✓ Marked as read</span>
+                          ) : (
+                            <button
+                              onClick={() => markClinicianNoteRead?.(latest.id)}
+                              style={{
+                                marginTop: 8, background: 'none', border: '1px solid var(--border-mid)',
+                                borderRadius: 20, padding: '3px 10px', fontSize: 10, fontWeight: 600,
+                                color: 'var(--coral)', cursor: 'pointer', fontFamily: "'Outfit', sans-serif",
+                              }}
+                            >Mark as read</button>
+                          )}
+                        </>
+                      )}
                     </div>
-                  )}
-                  <p style={{ margin: 0, fontSize: 13, color: 'var(--text-mid)', lineHeight: 1.6 }}>{latest.body}</p>
-                  {latest.created_at && (
-                    <p style={{ margin: '6px 0 0', fontSize: 10, color: 'var(--text-light)' }}>
-                      {new Date(latest.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                    </p>
-                  )}
-                  {isRead ? (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 8 }}>
-                      <span style={{ fontSize: 10, color: 'var(--mint)', fontWeight: 500 }}>✓ Marked as read</span>
-                    </div>
-                  ) : (
-                    <button
-                      onClick={() => markClinicianNoteRead?.(latest.id)}
-                      style={{
-                        marginTop: 10, background: 'none', border: '1px solid #FBB54A',
-                        borderRadius: 8, padding: '4px 10px', fontSize: 11, fontWeight: 600,
-                        color: '#D97706', cursor: 'pointer', fontFamily: "'Outfit', sans-serif",
-                      }}
-                    >Mark as read</button>
-                  )}
-                </div>
-              )
-            })()}
+                  </div>
+                )
+              })()}
+            </div>
           </div>
 
           <div>
@@ -795,7 +870,13 @@ export default function DailyView() {
           </div>
 
           <div style={{ marginTop: 22 }}>
-            <SupplementChecklist mealSlots={mealSlots} foodItems={foodItems} />
+            <SupplementChecklist
+              mealSlots={mealSlots}
+              foodItems={foodItems}
+              selectedDay={selectedDay}
+              checkedSupplements={checkedSupplements}
+              onToggleChecked={handleToggleSupplement}
+            />
           </div>
         </aside>
       </div>

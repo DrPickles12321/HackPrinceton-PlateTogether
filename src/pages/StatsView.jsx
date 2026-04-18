@@ -26,6 +26,7 @@ function AIInsightsSection({ weekStatuses }) {
   const [insights, setInsights] = useState(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
+  const [hasFoods, setHasFoods] = useState(false)
 
   function load() {
     const allStored = (() => {
@@ -36,8 +37,9 @@ function AIInsightsSection({ weekStatuses }) {
     const thisWeekItems = Object.fromEntries(
       Object.entries(allStored).filter(([date]) => weekDates.has(date))
     )
-    const hasFoods = Object.values(thisWeekItems).some(d => Object.values(d).flat().length > 0)
-    if (!hasFoods) return
+    const foods = Object.values(thisWeekItems).some(d => Object.values(d).flat().length > 0)
+    setHasFoods(foods)
+    if (!foods) return
 
     const statusCounts = {
       okay: weekStatuses.filter(s => s.status === 'okay').length,
@@ -49,12 +51,10 @@ function AIInsightsSection({ weekStatuses }) {
     setError(null)
     generateWeeklyInsights({ parentMealItemsByDate: thisWeekItems, mealLogs: statusCounts })
       .then(result => { setInsights(result); setLoading(false) })
-      .catch(err => { console.error('AI insights error:', err); setError(true); setLoading(false) })
+      .catch(err => { console.error('AI insights error:', err); setError(err.message || 'Unknown error'); setLoading(false) })
   }
 
   useEffect(() => { load() }, [])
-
-  if (!loading && !error && !insights) return null
 
   return (
     <div style={{
@@ -62,12 +62,26 @@ function AIInsightsSection({ weekStatuses }) {
       padding: '28px 28px', boxShadow: '0 3px 14px rgba(39,23,6,0.06)',
       marginTop: 22,
     }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 18 }}>
-        <span style={{ fontSize: 20 }}>✨</span>
-        <div>
-          <div style={{ fontWeight: 700, fontSize: 16, color: 'var(--text-dark)' }}>AI Meal Insights</div>
-          <div style={{ fontSize: 12, color: 'var(--text-light)', marginTop: 2 }}>Based on this week's planned foods · Not medical advice</div>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <span style={{ fontSize: 20 }}>✨</span>
+          <div>
+            <div style={{ fontWeight: 700, fontSize: 16, color: 'var(--text-dark)' }}>AI Meal Insights</div>
+            <div style={{ fontSize: 12, color: 'var(--text-light)', marginTop: 2 }}>Based on this week's planned foods · Not medical advice</div>
+          </div>
         </div>
+        {!loading && (
+          <button onClick={load} style={{
+            background: insights ? 'none' : 'linear-gradient(135deg, var(--coral) 0%, var(--pink) 100%)',
+            border: insights ? '1px solid var(--border-mid)' : 'none',
+            borderRadius: 20, padding: '7px 18px', fontSize: 12, fontWeight: 600,
+            color: insights ? 'var(--coral)' : 'white',
+            cursor: 'pointer', fontFamily: "'Outfit', sans-serif",
+            boxShadow: insights ? 'none' : '0 2px 8px rgba(184,85,53,0.25)',
+          }}>
+            {insights ? 'Refresh' : 'Generate Insights'}
+          </button>
+        )}
       </div>
 
       {loading && (
@@ -77,14 +91,32 @@ function AIInsightsSection({ weekStatuses }) {
         </div>
       )}
 
+      {!loading && !insights && !error && !hasFoods && (
+        <div style={{
+          textAlign: 'center', padding: '24px 16px',
+          background: 'var(--surface-warm)', borderRadius: 14,
+          border: '1px solid var(--border)',
+        }}>
+          <div style={{ fontSize: 28, marginBottom: 10 }}>🍽️</div>
+          <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-dark)', marginBottom: 6 }}>No meals planned yet</div>
+          <div style={{ fontSize: 13, color: 'var(--text-light)', lineHeight: 1.6 }}>
+            Add some meals in Daily View this week to get AI-generated insights.
+          </div>
+        </div>
+      )}
+
       {error && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <span style={{ fontSize: 13, color: 'var(--text-light)', fontStyle: 'italic' }}>Could not generate insights right now.</span>
-          <button onClick={load} style={{
-            background: 'none', border: '1px solid var(--border-mid)', borderRadius: 8,
-            padding: '4px 12px', fontSize: 12, color: 'var(--coral)', cursor: 'pointer',
-            fontFamily: "'Outfit', sans-serif", fontWeight: 600,
-          }}>Retry</button>
+        <div style={{
+          background: 'var(--coral-light)', borderRadius: 12, padding: '14px 16px',
+          border: '1px solid var(--coral-mid)',
+        }}>
+          <div style={{ fontSize: 13, color: 'var(--coral)', fontWeight: 600, marginBottom: 4 }}>Could not generate insights</div>
+          <div style={{ fontSize: 12, color: 'var(--text-mid)', fontFamily: 'monospace', wordBreak: 'break-all' }}>{error}</div>
+          {error.includes('VITE_ANTHROPIC_API_KEY') && (
+            <div style={{ fontSize: 12, color: 'var(--text-mid)', marginTop: 8, lineHeight: 1.6 }}>
+              Create a <code style={{ background: 'rgba(0,0,0,0.06)', borderRadius: 4, padding: '1px 5px' }}>.env</code> file in the project root with <code style={{ background: 'rgba(0,0,0,0.06)', borderRadius: 4, padding: '1px 5px' }}>VITE_ANTHROPIC_API_KEY=your_key</code> and restart the dev server.
+            </div>
+          )}
         </div>
       )}
 
