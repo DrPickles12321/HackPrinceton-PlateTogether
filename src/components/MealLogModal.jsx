@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import Modal from './Modal'
+import MealNutritionPanel from './MealNutritionPanel'
 
 const DAY_LABELS = {
   mon: 'Monday', tue: 'Tuesday', wed: 'Wednesday', thu: 'Thursday',
@@ -12,7 +13,7 @@ const STATUS_OPTIONS = [
   { key: 'refused',   emoji: '🙅', label: 'Refused',   color: 'var(--pink)',  bg: 'var(--pink-light)',  border: 'var(--pink-mid)' },
 ]
 
-export default function MealLogModal({ isOpen, onClose, slot, foodName, onSubmit }) {
+export default function MealLogModal({ isOpen, onClose, slot, foodName, foodCategory, onSubmit }) {
   const [status, setStatus]             = useState(null)
   const [note, setNote]                 = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -27,21 +28,32 @@ export default function MealLogModal({ isOpen, onClose, slot, foodName, onSubmit
     try {
       await onSubmit({ slotId: slot.id, status, note: note.trim() || null })
       setStatus(null); setNote(''); onClose()
-    } catch {}
-    finally { setIsSubmitting(false) }
+    } catch (err) {
+      console.error('Failed to save meal log:', err)
+    } finally {
+      setIsSubmitting(false)
+    }
   }
+
+  const syncWarning = slot && !slot.id
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="How did this meal go?">
       {slot && (
-        <p style={{ fontSize: 13, color: 'var(--text-mid)', marginBottom: 20, lineHeight: 1.5 }}>
+        <p style={{ fontSize: 13, color: 'var(--text-mid)', marginBottom: 16, lineHeight: 1.5 }}>
           {DAY_LABELS[slot.day]} · {slot.meal_type.charAt(0).toUpperCase() + slot.meal_type.slice(1)}
           {foodName ? ` · ${foodName}` : ''}
         </p>
       )}
 
-      {/* Status buttons */}
-      <div style={{ display: 'flex', gap: 9, marginBottom: 20 }}>
+      {foodName && (
+        <MealNutritionPanel
+          foods={[{ name: foodName, category: foodCategory || 'familiar' }]}
+          mode="parent"
+        />
+      )}
+
+      <div style={{ display: 'flex', gap: 9, marginBottom: 20, marginTop: 16 }}>
         {STATUS_OPTIONS.map(opt => {
           const selected = status === opt.key
           return (
@@ -68,7 +80,6 @@ export default function MealLogModal({ isOpen, onClose, slot, foodName, onSubmit
         })}
       </div>
 
-      {/* Note */}
       <div style={{ marginBottom: 20 }}>
         <label style={{
           display: 'block', fontSize: 11, fontWeight: 700, color: 'var(--text-light)',
@@ -89,21 +100,13 @@ export default function MealLogModal({ isOpen, onClose, slot, foodName, onSubmit
             lineHeight: 1.55, boxSizing: 'border-box', background: 'var(--surface-warm)',
             transition: 'border-color 0.15s, box-shadow 0.15s',
           }}
-          onFocus={e => {
-            e.target.style.borderColor = 'var(--coral)'
-            e.target.style.boxShadow = '0 0 0 3px rgba(184,85,53,0.10)'
-          }}
-          onBlur={e => {
-            e.target.style.borderColor = 'var(--border)'
-            e.target.style.boxShadow = 'none'
-          }}
+          onFocus={e => { e.target.style.borderColor = 'var(--coral)'; e.target.style.boxShadow = '0 0 0 3px rgba(184,85,53,0.10)' }}
+          onBlur={e => { e.target.style.borderColor = 'var(--border)'; e.target.style.boxShadow = 'none' }}
         />
-        <p style={{ fontSize: 11, color: 'var(--text-light)', textAlign: 'right', marginTop: 4 }}>
-          {note.length} / 500
-        </p>
+        <p style={{ fontSize: 11, color: 'var(--text-light)', textAlign: 'right', marginTop: 4 }}>{note.length} / 500</p>
       </div>
 
-      {slot && !slot.id && (
+      {syncWarning && (
         <p style={{ fontSize: 12, color: 'var(--peach)', marginBottom: 12 }}>
           This meal slot is still syncing. Try again in a moment.
         </p>
@@ -120,14 +123,13 @@ export default function MealLogModal({ isOpen, onClose, slot, foodName, onSubmit
         >Cancel</button>
         <button
           onClick={handleSubmit}
-          disabled={!status || isSubmitting || (slot && !slot.id)}
+          disabled={!status || isSubmitting || syncWarning}
           style={{
             padding: '10px 22px', fontSize: 13, borderRadius: 12, border: 'none',
-            background: status
-              ? 'linear-gradient(135deg, var(--coral) 0%, var(--pink) 100%)'
-              : 'var(--border)',
+            background: status ? 'linear-gradient(135deg, var(--coral) 0%, var(--pink) 100%)' : 'var(--border)',
             color: status ? 'white' : 'var(--text-light)',
-            cursor: status ? 'pointer' : 'not-allowed',
+            cursor: status && !syncWarning ? 'pointer' : 'not-allowed',
+            opacity: (!status || syncWarning) ? 0.5 : 1,
             fontWeight: 600, fontFamily: "'Outfit', sans-serif",
             transition: 'all 0.15s',
             boxShadow: status ? '0 3px 10px rgba(184,85,53,0.28)' : 'none',

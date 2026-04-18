@@ -1,5 +1,5 @@
-import { Fragment } from 'react'
 import { useDroppable } from '@dnd-kit/core'
+import NutritionBadge from './NutritionBadge'
 
 const DAYS = [
   { key: 'mon', label: 'Mon' },
@@ -12,15 +12,28 @@ const DAYS = [
 ]
 
 const MEAL_TYPES = [
-  { key: 'breakfast', label: 'Breakfast', icon: '☀️' },
-  { key: 'lunch',     label: 'Lunch',     icon: '🥗' },
-  { key: 'dinner',    label: 'Dinner',    icon: '🌙' },
-  { key: 'snack',     label: 'Snack',     icon: '🍎' },
+  { key: 'breakfast', label: 'Breakfast' },
+  { key: 'lunch',     label: 'Lunch' },
+  { key: 'dinner',    label: 'Dinner' },
+  { key: 'snack',     label: 'Snack' },
 ]
 
 const DAY_LABELS_FULL = { mon: 'Monday', tue: 'Tuesday', wed: 'Wednesday', thu: 'Thursday', fri: 'Friday', sat: 'Saturday', sun: 'Sunday' }
 const SLOT_BASE = 'border rounded-lg p-2 min-h-[80px] transition-colors duration-150 relative'
 const STATUS_DOT = { okay: 'bg-green-500', difficult: 'bg-yellow-500', refused: 'bg-red-500' }
+const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+
+function getWeekDates() {
+  const today = new Date()
+  const day = today.getDay()
+  const monday = new Date(today)
+  monday.setDate(today.getDate() - (day === 0 ? 6 : day - 1))
+  return Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(monday)
+    d.setDate(monday.getDate() + i)
+    return d
+  })
+}
 
 function StatusBadge({ log }) {
   if (!log) return null
@@ -33,7 +46,7 @@ function StatusBadge({ log }) {
   )
 }
 
-function ParentMealSlot({ slot, foodName, onSlotClick, isWeekend }) {
+function ParentMealSlot({ slot, foodName, foodCategory, onSlotClick, isWeekend }) {
   const { setNodeRef, isOver } = useDroppable({
     id: slot.id || `empty-${slot.day}-${slot.meal_type}`,
     data: { slot },
@@ -54,15 +67,19 @@ function ParentMealSlot({ slot, foodName, onSlotClick, isWeekend }) {
         ${isOver ? '!bg-blue-100 !border-blue-400 border-2' : 'border-gray-200'}
       `}
     >
-      {filled
-        ? <span className="text-sm text-gray-900 leading-tight break-words pr-4 block">{foodName}</span>
-        : <div className="flex items-center justify-center h-full text-gray-400 text-xs pt-4">+ drag food</div>
-      }
+      {filled ? (
+        <>
+          <span className="text-sm text-gray-900 leading-tight break-words pr-4 block">{foodName}</span>
+          <NutritionBadge foodName={foodName} category={foodCategory} mode="parent" />
+        </>
+      ) : (
+        <div className="flex items-center justify-center h-full text-gray-400 text-xs pt-4">+ drag food</div>
+      )}
     </div>
   )
 }
 
-function ClinicianMealSlot({ slot, foodName, latestLog, isWeekend }) {
+function ClinicianMealSlot({ slot, foodName, foodCategory, latestLog, isWeekend }) {
   const filled = !!slot.assigned_food_id
   return (
     <div
@@ -72,54 +89,73 @@ function ClinicianMealSlot({ slot, foodName, latestLog, isWeekend }) {
         ${filled ? 'border-gray-200' : 'border-dashed border-gray-200'}
       `}
     >
-      {filled
-        ? <span className="text-sm text-gray-900 leading-tight break-words pr-4 block">{foodName}</span>
-        : <div className="flex items-center justify-center h-full text-gray-300 text-xs pt-4">—</div>
-      }
+      {filled ? (
+        <>
+          <span className="text-sm text-gray-900 leading-tight break-words pr-4 block">{foodName}</span>
+          <NutritionBadge foodName={foodName} category={foodCategory} mode="clinician" />
+        </>
+      ) : (
+        <div className="flex items-center justify-center h-full text-gray-300 text-xs pt-4">—</div>
+      )}
       {filled && <StatusBadge log={latestLog} />}
     </div>
   )
 }
 
-export default function WeeklyGrid({ mealSlots, foodItems, mode = 'parent', onSlotClick, latestLogBySlot = {} }) {
+export default function WeeklyGrid({ mealSlots, foodItems, mode = 'parent', onSlotClick, latestLogBySlot = {}, onDayClick }) {
+  const weekDates = getWeekDates()
+
   function getSlot(day, mealType) {
     return mealSlots.find(s => s.day === day && s.meal_type === mealType)
       || { id: null, day, meal_type: mealType, assigned_food_id: null }
   }
-  function getFoodName(foodId) {
-    if (!foodId) return ''
-    return foodItems.find(f => f.id === foodId)?.name || '(unknown)'
+  function getFood(foodId) {
+    if (!foodId) return { name: '', category: 'familiar' }
+    const f = foodItems.find(f => f.id === foodId)
+    return { name: f?.name || '(unknown)', category: f?.category || 'familiar' }
   }
 
   return (
     <div className="flex-1 overflow-auto p-4">
       <div className="overflow-x-auto -mx-4 px-4 md:mx-0 md:px-0">
         <div className="min-w-[720px]">
-          {/* Sticky header */}
-          <div className="grid grid-cols-[100px_repeat(7,1fr)] gap-2 mb-2 sticky top-[60px] bg-white z-10 pb-2">
+          {/* Sticky day header with dates */}
+          <div className="grid grid-cols-[100px_repeat(7,1fr)] gap-2 mb-2 sticky top-0 bg-white z-10 pb-2">
             <div />
-            {DAYS.map(day => (
-              <div key={day.key} className={`text-center text-xs font-semibold uppercase tracking-wide py-2 rounded ${day.isWeekend ? 'bg-blue-50 text-blue-900' : 'text-gray-600'}`}>
-                {day.label}
-              </div>
-            ))}
+            {DAYS.map((day, i) => {
+              const d = weekDates[i]
+              const dateStr = `${MONTHS[d.getMonth()]} ${d.getDate()}`
+              const clickable = mode === 'clinician' && !!onDayClick
+              return (
+                <div
+                  key={day.key}
+                  onClick={clickable ? () => onDayClick(day.key) : undefined}
+                  className={`text-center py-2 rounded ${day.isWeekend ? 'bg-blue-50 text-blue-900' : 'text-gray-600'} ${clickable ? 'cursor-pointer hover:bg-indigo-50 hover:text-indigo-800 transition-colors' : ''}`}
+                  title={clickable ? `View ${day.label} nutrition` : undefined}
+                >
+                  <div className="text-xs font-semibold uppercase tracking-wide">{day.label}</div>
+                  <div className="text-xs text-gray-400 mt-0.5">{dateStr}</div>
+                  {clickable && <div className="text-[9px] text-indigo-400 mt-0.5">tap for nutrition</div>}
+                </div>
+              )
+            })}
           </div>
 
           {/* Meal rows */}
           {MEAL_TYPES.map(meal => (
             <div key={meal.key} className="grid grid-cols-[100px_repeat(7,1fr)] gap-2 mb-2">
-              <div className="flex items-center gap-1.5 text-sm font-medium text-gray-700">
-                <span aria-hidden="true">{meal.icon}</span>
-                <span>{meal.label}</span>
+              <div className="flex items-center text-sm font-medium text-gray-700">
+                {meal.label}
               </div>
               {DAYS.map(day => {
                 const slot = getSlot(day.key, meal.key)
-                const foodName = getFoodName(slot.assigned_food_id)
+                const { name: foodName, category: foodCategory } = getFood(slot.assigned_food_id)
                 return mode === 'clinician' ? (
                   <ClinicianMealSlot
                     key={`${day.key}-${meal.key}`}
                     slot={slot}
                     foodName={foodName}
+                    foodCategory={foodCategory}
                     latestLog={slot.id ? latestLogBySlot[slot.id] : null}
                     isWeekend={day.isWeekend}
                   />
@@ -128,6 +164,7 @@ export default function WeeklyGrid({ mealSlots, foodItems, mode = 'parent', onSl
                     key={slot.id || `${day.key}-${meal.key}`}
                     slot={slot}
                     foodName={foodName}
+                    foodCategory={foodCategory}
                     onSlotClick={onSlotClick}
                     isWeekend={day.isWeekend}
                   />
