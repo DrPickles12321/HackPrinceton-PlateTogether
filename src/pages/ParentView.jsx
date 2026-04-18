@@ -15,6 +15,14 @@ export default function ParentView() {
     try { return Object.values(JSON.parse(localStorage.getItem('parentNotesByDate') || '{}')) }
     catch { return [] }
   })
+  const [clinicianNotesRead, setClinicianNotesRead] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('clinicianNotesReadByParent') || '{}') }
+    catch { return {} }
+  })
+  const [mealStatuses, setMealStatuses] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('parentMealStatusesByDate') || '{}') }
+    catch { return {} }
+  })
   const { showToast } = useToast()
   const { setStatus } = useRealtimeStatus()
 
@@ -64,6 +72,23 @@ export default function ParentView() {
     onDelete: row => setClinicianNotes(c => c.filter(n => n.id !== row.id)),
   })
 
+  function setMealStatus(date, mealType, status) {
+    setMealStatuses(prev => {
+      const day = { ...(prev[date] || {}) }
+      if (day[mealType] === status) return prev
+      day[mealType] = status
+      const next = { ...prev, [date]: day }
+      localStorage.setItem('parentMealStatusesByDate', JSON.stringify(next))
+      return next
+    })
+  }
+
+  function markClinicianNoteRead(noteId) {
+    const next = { ...JSON.parse(localStorage.getItem('clinicianNotesReadByParent') || '{}'), [noteId]: new Date().toISOString() }
+    localStorage.setItem('clinicianNotesReadByParent', JSON.stringify(next))
+    setClinicianNotesRead(next)
+  }
+
   function saveParentNote({ date, body, existingNoteId }) {
     const stored = JSON.parse(localStorage.getItem('parentNotesByDate') || '{}')
     const note = existingNoteId
@@ -110,7 +135,7 @@ export default function ParentView() {
 
   return (
     <div className="max-w-7xl mx-auto p-4 md:p-6">
-      <Outlet context={{ mealSlots, foodItems, mealLogs, clinicianNotes, parentNotes, updateMealSlot, insertMealLog, saveParentNote }} />
+      <Outlet context={{ mealSlots, foodItems, mealLogs, clinicianNotes, parentNotes, clinicianNotesRead, mealStatuses, updateMealSlot, insertMealLog, saveParentNote, markClinicianNoteRead, setMealStatus }} />
     </div>
   )
 }

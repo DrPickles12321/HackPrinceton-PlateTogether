@@ -261,8 +261,8 @@ function MealCard({ meal, slot, items, onRemove, latestLog, onQuickLog, time, on
             return (
               <button
                 key={opt.key}
-                onClick={() => slot?.id && onQuickLog(slot, opt.key)}
-                disabled={!slot?.id || !hasItems}
+                onClick={() => hasItems && onQuickLog(slot, opt.key)}
+                disabled={!hasItems}
                 style={{
                   display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2,
                   padding: '7px 11px', borderRadius: 10,
@@ -480,7 +480,7 @@ function DailyProgressPanel({ mealItems }) {
 // ─── Main view ────────────────────────────────────────────────────────────────
 
 export default function DailyView() {
-  const { mealSlots, foodItems, mealLogs, clinicianNotes = [], parentNotes = [], insertMealLog, saveParentNote } = useOutletContext()
+  const { mealSlots, foodItems, mealLogs, clinicianNotes = [], parentNotes = [], clinicianNotesRead = {}, mealStatuses = {}, insertMealLog, saveParentNote, markClinicianNoteRead, setMealStatus } = useOutletContext()
   const [selectedDay, setSelectedDay] = useState(getTodayKey)
   const [weekOffset, setWeekOffset] = useState(0)
   const [activeDrag, setActiveDrag] = useState(null)
@@ -543,9 +543,11 @@ export default function DailyView() {
     setMealItemsForDay(prev => ({ ...prev, [mealType]: prev[mealType].filter((_, i) => i !== index) }))
   }
 
-  async function handleQuickLog(slot, status) {
-    if (!slot?.id) return
-    try { await insertMealLog({ slotId: slot.id, status, note: null }) } catch {}
+  async function handleQuickLog(slot, mealType, status) {
+    setMealStatus(selectedDate, mealType, status)
+    if (slot?.id) {
+      try { await insertMealLog({ slotId: slot.id, status, note: null }) } catch {}
+    }
   }
 
   return (
@@ -641,6 +643,10 @@ export default function DailyView() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             {MEALS.map(meal => {
               const slot = getSlot(meal.key)
+              const localStatus = (mealStatuses[selectedDate] || {})[meal.key]
+              const latestLog = localStatus
+                ? { status: localStatus }
+                : getLatestLog(slot?.id)
               return (
                 <MealCard
                   key={meal.key}
@@ -648,8 +654,8 @@ export default function DailyView() {
                   slot={slot}
                   items={mealItems[meal.key]}
                   onRemove={index => removeItem(meal.key, index)}
-                  latestLog={getLatestLog(slot?.id)}
-                  onQuickLog={handleQuickLog}
+                  latestLog={latestLog}
+                  onQuickLog={(slot, status) => handleQuickLog(slot, meal.key, status)}
                   time={mealTimes[meal.key]}
                   onTimeChange={updateMealTime}
                 />
@@ -705,24 +711,47 @@ export default function DailyView() {
               const today = new Date().toISOString().slice(0, 10)
               const todayNote = clinicianNotes.find(n => n.created_at?.slice(0, 10) === today)
               const latest = todayNote || clinicianNotes[0] || null
-              return latest ? (
-                <div style={{
-                  background: 'var(--peach-light)', borderRadius: 14, padding: '13px',
-                  border: '1px solid var(--peach-mid)',
-                }}>
-                  <p style={{ margin: 0, fontSize: 13, color: 'var(--text-mid)', lineHeight: 1.6 }}>{latest.body}</p>
-                  {latest.created_at && (
-                    <p style={{ margin: '6px 0 0', fontSize: 10, color: 'var(--text-light)' }}>
-                      Last updated {new Date(latest.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                    </p>
-                  )}
-                </div>
-              ) : (
+              if (!latest) return (
                 <div style={{
                   background: 'var(--peach-light)', borderRadius: 14, padding: '13px',
                   fontSize: 12, color: 'var(--text-light)', lineHeight: 1.6, fontStyle: 'italic',
                   border: '1px solid var(--peach-mid)',
                 }}>No notes yet.</div>
+              )
+              const isRead = !!clinicianNotesRead[latest.id]
+              return (
+                <div style={{
+                  background: isRead ? 'var(--peach-light)' : '#FFF7ED',
+                  borderRadius: 14, padding: '13px',
+                  border: isRead ? '1px solid var(--peach-mid)' : '1.5px solid #FBB54A',
+                }}>
+                  {!isRead && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 7 }}>
+                      <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#F59E0B', flexShrink: 0, display: 'block' }} />
+                      <span style={{ fontSize: 10, fontWeight: 700, color: '#D97706', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Unread</span>
+                    </div>
+                  )}
+                  <p style={{ margin: 0, fontSize: 13, color: 'var(--text-mid)', lineHeight: 1.6 }}>{latest.body}</p>
+                  {latest.created_at && (
+                    <p style={{ margin: '6px 0 0', fontSize: 10, color: 'var(--text-light)' }}>
+                      {new Date(latest.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                    </p>
+                  )}
+                  {isRead ? (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 8 }}>
+                      <span style={{ fontSize: 10, color: 'var(--mint)', fontWeight: 500 }}>✓ Marked as read</span>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => markClinicianNoteRead?.(latest.id)}
+                      style={{
+                        marginTop: 10, background: 'none', border: '1px solid #FBB54A',
+                        borderRadius: 8, padding: '4px 10px', fontSize: 11, fontWeight: 600,
+                        color: '#D97706', cursor: 'pointer', fontFamily: "'Outfit', sans-serif",
+                      }}
+                    >Mark as read</button>
+                  )}
+                </div>
               )
             })()}
           </div>

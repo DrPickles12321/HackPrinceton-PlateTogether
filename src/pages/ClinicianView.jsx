@@ -24,6 +24,10 @@ export default function ClinicianView() {
     try { return JSON.parse(localStorage.getItem('parentMealItemsByDate') || '{}') }
     catch { return {} }
   })
+  const [clinicianNotesRead, setClinicianNotesRead] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('clinicianNotesReadByParent') || '{}') }
+    catch { return {} }
+  })
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [selectedDay, setSelectedDay] = useState(null)
@@ -41,6 +45,8 @@ export default function ClinicianView() {
       try { setParentNotes(Object.values(JSON.parse(localStorage.getItem('parentNotesByDate') || '{}'))) }
       catch {}
       try { setParentMealItems(JSON.parse(localStorage.getItem('parentMealItemsByDate') || '{}')) }
+      catch {}
+      try { setClinicianNotesRead(JSON.parse(localStorage.getItem('clinicianNotesReadByParent') || '{}')) }
       catch {}
     }
     function onVisibility() { if (!document.hidden) refreshParentData() }
@@ -199,6 +205,7 @@ export default function ClinicianView() {
             notes={notes}
             mode="clinician"
             onSave={handleSaveNote}
+            notesReadByParent={clinicianNotesRead}
           />
         </>
       )}

@@ -12,7 +12,7 @@ function toDateKey(isoString) {
   return isNaN(d.getTime()) ? 'unknown' : d.toISOString().slice(0, 10)
 }
 
-export default function NotesPanel({ notes, mode, onSave }) {
+export default function NotesPanel({ notes, mode, onSave, notesReadByParent = {} }) {
   const today = new Date().toISOString().slice(0, 10)
 
   const byDay = {}
@@ -36,10 +36,20 @@ export default function NotesPanel({ notes, mode, onSave }) {
           Today · {formatDate(new Date().toISOString())}
         </p>
         {mode === 'clinician' ? (
-          <NoteComposer
-            existingNote={todayNote}
-            onSave={(body) => onSave({ body, existingNoteId: todayNote?.id || null })}
-          />
+          <>
+            <NoteComposer
+              existingNote={todayNote}
+              onSave={(body) => onSave({ body, existingNoteId: todayNote?.id || null })}
+            />
+            {todayNote && (
+              <div className="mt-2">
+                {notesReadByParent[todayNote.id]
+                  ? <span className="text-xs text-green-600 font-medium">✓ Parent has read this note</span>
+                  : <span className="text-xs text-amber-500 font-medium">● Parent hasn't read this yet</span>
+                }
+              </div>
+            )}
+          </>
         ) : todayNote ? (
           <div>
             <p className="text-sm text-gray-800 leading-relaxed whitespace-pre-wrap">{todayNote.body}</p>
