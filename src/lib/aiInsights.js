@@ -54,21 +54,20 @@ export async function generateWeeklyInsights({ parentMealItemsByDate, mealLogs =
   const difficult = typeof mealLogs.difficult === 'number' ? mealLogs.difficult : (mealLogs.filter ? mealLogs.filter(l => l.status === 'difficult').length : 0)
   const refused = typeof mealLogs.refused === 'number' ? mealLogs.refused : (mealLogs.filter ? mealLogs.filter(l => l.status === 'refused').length : 0)
 
-  const prompt = `You are an uplifting, warm support coach for a family working on healthy eating habits together. Look at this week's meals and give 3 short, specific, encouraging observations.
+  const prompt = `You are a warm, encouraging presence for a family building healthy eating habits together. Look at this week and share 3 brief, uplifting observations — like a supportive friend, not a doctor.
 
-Week (${daysWithFood.length} days planned):
+This week (${daysWithFood.length} days):
 ${daySummaries}
 
-This week: ${okay} meals felt okay, ${difficult} felt difficult, ${refused} were skipped.
+Mood check-ins: ${okay} felt okay, ${difficult} felt hard, ${refused} were skipped.
 
-Rules:
-- No medical advice, diagnoses, or clinical language whatsoever
-- Each insight is ONE sentence max — keep it brief and warm
-- Be specific (mention actual foods or days), not generic
-- Focus on effort, variety, and positive patterns
-- If something is missing, frame it as encouragement, not criticism
-- Return ONLY a JSON array: [{ "type": "positive"|"tip"|"notice", "icon": "<emoji>", "text": "<one sentence>" }]
-- Exactly 3 items`
+Write 3 short cheerful observations. Rules:
+- Sound like a caring friend, never a doctor or nutritionist
+- Zero medical language, zero advice, zero recommendations
+- Celebrate effort and small wins — mention specific foods or days when it feels natural
+- Each item is one short sentence (under 20 words)
+- If meals were skipped or hard, still find something positive to say
+- Return ONLY valid JSON, nothing else: [{ "type": "positive"|"tip"|"notice", "icon": "<single emoji>", "text": "..." }]`
 
   const raw = await callClaude(prompt)
   const parsed = extractJSON(raw)

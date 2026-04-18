@@ -1,5 +1,6 @@
-import { useMemo } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import { useOutletContext } from 'react-router-dom'
+import { generateWeeklyInsights } from '../lib/aiInsights'
 
 const MEAL_LABELS = { breakfast: 'Breakfast', lunch: 'Lunch', snack: 'Snack', dinner: 'Dinner' }
 
@@ -15,6 +16,97 @@ function getThisWeekIsoDates() {
   })
 }
 
+
+const INSIGHT_STYLES = {
+  positive: { bg: 'var(--mint-light)', border: 'var(--mint-mid)' },
+  tip:      { bg: 'var(--peach-light)', border: 'var(--peach-mid)' },
+  notice:   { bg: 'var(--coral-light)', border: '#fecaca' },
+}
+
+function AIInsightsSection({ weekStatuses }) {
+  const [insights, setInsights] = useState(null)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState(null)
+
+  function load() {
+    const allStored = (() => {
+      try { return JSON.parse(localStorage.getItem('parentMealItemsByDate') || '{}') }
+      catch { return {} }
+    })()
+    const weekDates = new Set(getThisWeekIsoDates())
+    const thisWeekItems = Object.fromEntries(
+      Object.entries(allStored).filter(([date]) => weekDates.has(date))
+    )
+    const hasFoods = Object.values(thisWeekItems).some(d => Object.values(d).flat().length > 0)
+    if (!hasFoods) return
+
+    const statusCounts = {
+      okay: weekStatuses.filter(s => s.status === 'okay').length,
+      difficult: weekStatuses.filter(s => s.status === 'difficult').length,
+      refused: weekStatuses.filter(s => s.status === 'refused').length,
+    }
+    setLoading(true)
+    setError(null)
+    generateWeeklyInsights({ parentMealItemsByDate: thisWeekItems, mealLogs: statusCounts })
+      .then(result => { setInsights(result); setLoading(false) })
+      .catch(err => { console.error('AI insights error:', err); setError(true); setLoading(false) })
+  }
+
+  useEffect(() => { load() }, [])
+
+  if (!loading && !error && !insights) return null
+
+  return (
+    <div style={{
+      background: 'white', borderRadius: 22, border: '1.5px solid var(--border)',
+      padding: '28px', boxShadow: '0 3px 14px rgba(39,23,6,0.06)', marginTop: 22,
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 18 }}>
+        <span style={{ fontSize: 20 }}>✨</span>
+        <div>
+          <div style={{ fontWeight: 700, fontSize: 16, color: 'var(--text-dark)' }}>AI Encouragement</div>
+          <div style={{ fontSize: 12, color: 'var(--text-light)', marginTop: 2 }}>A few kind words about this week</div>
+        </div>
+      </div>
+
+      {loading && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--text-light)', fontSize: 13 }}>
+          <span style={{ animation: 'spin 1s linear infinite', display: 'inline-block' }}>⟳</span>
+          Thinking of something nice to say…
+        </div>
+      )}
+
+      {error && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <span style={{ fontSize: 13, color: 'var(--text-light)', fontStyle: 'italic' }}>Could not load right now.</span>
+          <button onClick={load} style={{
+            background: 'none', border: '1px solid var(--border-mid)', borderRadius: 8,
+            padding: '4px 12px', fontSize: 12, color: 'var(--coral)', cursor: 'pointer',
+            fontFamily: "'Outfit', sans-serif", fontWeight: 600,
+          }}>Retry</button>
+        </div>
+      )}
+
+      {!loading && !error && insights && (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 12 }}>
+          {insights.map((item, i) => {
+            const s = INSIGHT_STYLES[item.type] || INSIGHT_STYLES.tip
+            return (
+              <div key={i} style={{
+                display: 'flex', alignItems: 'flex-start', gap: 12,
+                background: s.bg, borderRadius: 14, border: `1px solid ${s.border}`,
+                padding: '14px 16px',
+              }}>
+                <span style={{ fontSize: 22, flexShrink: 0, lineHeight: 1.3 }}>{item.icon}</span>
+                <span style={{ fontSize: 13, color: 'var(--text-mid)', lineHeight: 1.65 }}>{item.text}</span>
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
 
 export default function StatsView() {
   const { mealSlots, foodItems, mealLogs, mealStatuses = {} } = useOutletContext()
@@ -237,6 +329,7 @@ export default function StatsView() {
           ))}
         </div>
 
+        <AIInsightsSection weekStatuses={thisWeekStatuses} />
       </div>
     </div>
   )
