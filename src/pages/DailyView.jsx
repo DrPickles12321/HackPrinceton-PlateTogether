@@ -78,7 +78,7 @@ function build24HourTime(hourValue, minuteValue, period) {
 
 // ─── Drop zone: always droppable, renders food chips ─────────────────────────
 
-function DropZone({ mealType, items, onRemove }) {
+function DropZone({ mealType, items, onRemove, onFoodClick, selectedFoodIndex }) {
   const { setNodeRef, isOver } = useDroppable({
     id: `meal-${mealType}`,
     data: { mealType },
@@ -105,13 +105,29 @@ function DropZone({ mealType, items, onRemove }) {
       ) : (
         <>
           {items.map((food, i) => (
-            <span key={i} style={{
-              display: 'inline-flex', alignItems: 'center', gap: 4,
-              background: 'white', border: '1px solid var(--border-mid)',
-              borderRadius: 8, padding: '4px 8px 4px 10px',
-              fontSize: 13, fontWeight: 500, color: 'var(--text-dark)',
-              boxShadow: '0 1px 3px rgba(39,23,6,0.06)',
-            }}>
+            <span
+              key={i}
+              onClick={e => { e.stopPropagation(); onFoodClick?.(i) }}
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: 4,
+                background: 'white', border: '1px solid var(--border-mid)',
+                borderRadius: 8, padding: '4px 8px 4px 10px',
+                fontSize: 13, fontWeight: 500, color: 'var(--text-dark)',
+                boxShadow: '0 1px 3px rgba(39,23,6,0.06)',
+                cursor: 'pointer',
+                outline: selectedFoodIndex === i ? '2px solid #E8735A' : 'none',
+                outlineOffset: 1,
+              }}
+            >
+              {food.status && (
+                <span style={{
+                  width: 7, height: 7, borderRadius: '50%', flexShrink: 0,
+                  background: food.status === 'okay' ? '#2d9e5f'
+                    : food.status === 'difficult' ? '#c9860a'
+                    : '#d63f3f',
+                  display: 'inline-block',
+                }} />
+              )}
               {food.name}
               <button
                 onClick={e => { e.stopPropagation(); onRemove(i) }}
@@ -137,7 +153,7 @@ function DropZone({ mealType, items, onRemove }) {
 
 // ─── Meal card ────────────────────────────────────────────────────────────────
 
-function MealCard({ meal, slot, items, onRemove, latestLog, onQuickLog, time, onTimeChange }) {
+function MealCard({ meal, slot, items, onRemove, latestLog, onQuickLog, time, onTimeChange, selectedFoodIndex, onFoodClick, onFoodStatusSet }) {
   const loggedStatus = latestLog?.status || null
   const hasItems = items.length > 0
   const initialTime = parseTimeValue(time)
@@ -237,8 +253,73 @@ function MealCard({ meal, slot, items, onRemove, latestLog, onQuickLog, time, on
       </div>
 
       {/* Body */}
-      <div style={{ padding: '12px 16px', display: 'flex', alignItems: 'flex-start', gap: 12 }}>
-        <DropZone mealType={meal.key} items={items} onRemove={onRemove} />
+      <div style={{ padding: '12px 16px', display: 'flex', alignItems: 'flex-start', gap: 12, position: 'relative' }}>
+        <div style={{ flex: 1, position: 'relative' }}>
+          <DropZone
+            mealType={meal.key}
+            items={items}
+            onRemove={onRemove}
+            onFoodClick={onFoodClick}
+            selectedFoodIndex={selectedFoodIndex}
+          />
+          {selectedFoodIndex != null && (
+            <div
+              onClick={e => e.stopPropagation()}
+              style={{
+                position: 'absolute',
+                top: '100%',
+                left: 0,
+                zIndex: 50,
+                marginTop: 4,
+                background: 'white',
+                border: '1.5px solid var(--border)',
+                borderRadius: 12,
+                padding: '8px 10px',
+                display: 'flex',
+                gap: 6,
+                boxShadow: '0 4px 16px rgba(39,23,6,0.10)',
+              }}
+            >
+              <span style={{ fontSize: 11, color: 'var(--text-light)', alignSelf: 'center', marginRight: 4 }}>
+                {items[selectedFoodIndex]?.name}:
+              </span>
+              {[
+                { key: 'okay',      emoji: '😌', label: 'Ok',   color: '#2d9e5f' },
+                { key: 'difficult', emoji: '😰', label: 'Hard', color: '#c9860a' },
+                { key: 'refused',   emoji: '🙅', label: 'No',   color: '#d63f3f' },
+              ].map(opt => {
+                const isSelected = items[selectedFoodIndex]?.status === opt.key
+                return (
+                  <button
+                    key={opt.key}
+                    onClick={() => onFoodStatusSet?.(meal.key, selectedFoodIndex, isSelected ? null : opt.key)}
+                    style={{
+                      display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1,
+                      padding: '5px 9px', borderRadius: 8, border: 'none',
+                      background: isSelected ? (
+                        opt.key === 'okay' ? '#eaf7f0' : opt.key === 'difficult' ? '#fef8e7' : '#fdeaea'
+                      ) : 'var(--surface-warm)',
+                      cursor: 'pointer',
+                      outline: isSelected ? `2px solid ${opt.color}` : 'none',
+                      fontFamily: "'Outfit', sans-serif",
+                    }}
+                  >
+                    <span style={{ fontSize: 16 }}>{opt.emoji}</span>
+                    <span style={{ fontSize: 9, fontWeight: 600, color: opt.color }}>{opt.label}</span>
+                  </button>
+                )
+              })}
+              <button
+                onClick={e => { e.stopPropagation(); onFoodClick?.(selectedFoodIndex) }}
+                style={{
+                  background: 'none', border: 'none', cursor: 'pointer',
+                  color: 'var(--text-light)', fontSize: 16, alignSelf: 'center',
+                  padding: '0 2px', fontFamily: 'inherit',
+                }}
+              >×</button>
+            </div>
+          )}
+        </div>
 
         <div style={{ display: 'flex', gap: 6, flexShrink: 0, paddingTop: items.length > 1 ? 4 : 0 }}>
           {STATUS_OPTIONS.map(opt => {
@@ -752,6 +833,7 @@ export default function DailyView() {
   const { mealSlots, foodItems, mealLogs, clinicianNotes = [], parentNotes = [], clinicianNotesRead = {}, mealStatuses = {}, savedClinicianNotes = [], weekOffset = 0, setWeekOffset, insertMealLog, saveParentNote, markClinicianNoteRead, saveClinicianNote, unsaveClinicianNote, clearAllSavedNotes, setMealStatus } = useOutletContext()
   const [selectedDay, setSelectedDay] = useState(getTodayKey)
   const [activeDrag, setActiveDrag] = useState(null)
+  const [selectedFood, setSelectedFood] = useState(null)
 
   const {
     supplementLog, toggleSupplement,
@@ -771,6 +853,22 @@ export default function DailyView() {
 
   const selectedDate = weekDates[selectedDay]
   const mealItems = { ...EMPTY_MEAL_ITEMS, ...(allMealItems[selectedDate] || {}) }
+
+  useEffect(() => {
+    if (!selectedFood) return
+    function handleClick() { setSelectedFood(null) }
+    document.addEventListener('click', handleClick)
+    return () => document.removeEventListener('click', handleClick)
+  }, [selectedFood])
+
+  function setFoodStatus(mealType, index, status) {
+    setMealItemsForDay(prev => {
+      const updated = [...prev[mealType]]
+      updated[index] = { ...updated[index], status }
+      return { ...prev, [mealType]: updated }
+    })
+    setSelectedFood(null)
+  }
 
   function setMealItemsForDay(updater) {
     const current = { ...EMPTY_MEAL_ITEMS, ...(allMealItems[selectedDate] || {}) }
@@ -944,6 +1042,13 @@ export default function DailyView() {
                   onQuickLog={(slot, status) => handleQuickLog(slot, meal.key, status)}
                   time={mealTimes[meal.key]}
                   onTimeChange={updateMealTime}
+                  selectedFoodIndex={selectedFood?.mealType === meal.key ? selectedFood.index : null}
+                  onFoodClick={index => setSelectedFood(
+                    selectedFood?.mealType === meal.key && selectedFood?.index === index
+                      ? null
+                      : { mealType: meal.key, index }
+                  )}
+                  onFoodStatusSet={setFoodStatus}
                 />
               )
             })}
