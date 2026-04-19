@@ -675,7 +675,7 @@ function ClinicianNotesSidebar({ clinicianNotes, clinicianNotesRead, markClinici
                   fontFamily: "'Lato', sans-serif",
                   borderColor: isUpdated ? '#FBB54A' : 'var(--border-mid)',
                 }}
-              >{isUpdated ? 'Acknowledge' : 'Mark as read'}</button>
+              >Mark as read</button>
             )}
             <button
               onClick={() => isSaved ? unsaveClinicianNote?.(latest.id) : saveClinicianNote?.(latest)}
