@@ -11,7 +11,6 @@ export default function ParentView() {
   const [mealSlots, setMealSlots] = useState([])
   const [foodItems, setFoodItems] = useState([])
   const [mealLogs, setMealLogs] = useState([])
-  const [clinicianNotes, setClinicianNotes] = useState([])
   const [weekOffset, setWeekOffset] = useState(0)
   const { showToast } = useToast()
   const { setStatus } = useRealtimeStatus()
@@ -28,6 +27,7 @@ export default function ParentView() {
     unsaveClinicianNote,
     clearAllSavedNotes,
     setMealStatus,
+    clinicianNotes,
   } = useFirebaseData()
 
   useEffect(() => {
@@ -38,9 +38,6 @@ export default function ParentView() {
       .then(({ data }) => { if (data) setFoodItems(data) })
     supabase.from('meal_logs').select('*')
       .then(({ data }) => { if (data) setMealLogs(data) })
-    supabase.from('clinician_notes').select('*').eq('family_id', DEMO_FAMILY_ID)
-      .order('created_at', { ascending: false })
-      .then(({ data }) => { if (data) setClinicianNotes(data) })
     return () => setStatus('disconnected')
   }, [setStatus])
 
@@ -66,14 +63,6 @@ export default function ParentView() {
       setFoodItems(c => c.filter(f => f.id !== row.id))
       setMealSlots(c => c.map(s => s.assigned_food_id === row.id ? { ...s, assigned_food_id: null } : s))
     },
-  })
-
-  useRealtime({
-    table: 'clinician_notes',
-    familyId: DEMO_FAMILY_ID,
-    onInsert: row => setClinicianNotes(c => [row, ...c]),
-    onUpdate: row => setClinicianNotes(c => c.map(n => n.id === row.id ? row : n)),
-    onDelete: row => setClinicianNotes(c => c.filter(n => n.id !== row.id)),
   })
 
   async function updateMealSlot(slotId, assignedFoodId) {
