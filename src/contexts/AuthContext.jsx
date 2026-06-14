@@ -14,19 +14,25 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     return onAuthStateChanged(auth, async firebaseUser => {
       if (firebaseUser) {
-        const snap = await get(ref(db, `users/${firebaseUser.uid}/role`))
-        // Guard: user might have been signed out while we awaited
-        if (auth.currentUser?.uid !== firebaseUser.uid) return
-        const storedRole = snap.val()
-        if (pendingRoleRef.current && storedRole && storedRole !== pendingRoleRef.current) {
+        try {
+          const snap = await get(ref(db, `users/${firebaseUser.uid}/role`))
+          // Guard: user might have been signed out while we awaited
+          if (auth.currentUser?.uid !== firebaseUser.uid) return
+          const storedRole = snap.val()
+          if (pendingRoleRef.current && storedRole && storedRole !== pendingRoleRef.current) {
+            pendingRoleRef.current = null
+            await signOut(auth)
+            setLoginError(`This email is registered as a ${storedRole}. Please select the correct role.`)
+            return
+          }
+          pendingRoleRef.current = null
+          setRole(storedRole)
+          setUser(firebaseUser)
+        } catch (err) {
           pendingRoleRef.current = null
           await signOut(auth)
-          setLoginError(`This email is registered as a ${storedRole}. Please select the correct role.`)
-          return
+          setLoginError('Something went wrong loading your account. Please sign in again.')
         }
-        pendingRoleRef.current = null
-        setRole(storedRole)
-        setUser(firebaseUser)
       } else {
         setUser(null)
         setRole(null)
