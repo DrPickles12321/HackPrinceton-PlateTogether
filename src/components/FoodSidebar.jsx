@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useDraggable } from '@dnd-kit/core'
-import { supabase } from '../lib/supabase'
-import { DEMO_FAMILY_ID } from '../lib/constants'
+import { useFirebaseData } from '../contexts/FirebaseDataContext'
 import AddFoodInput from './AddFoodInput'
 
 const CATEGORIES = [
@@ -194,41 +193,21 @@ function Section({ config, foods, onDelete, onChangeCategory }) {
 }
 
 export default function FoodSidebar() {
-  const [foods, setFoods] = useState([])
+  const { foodItems, addFoodItem, deleteFoodItem, updateFoodItemCategory } = useFirebaseData()
 
-  useEffect(() => {
-    supabase.from('food_items').select('*').eq('family_id', DEMO_FAMILY_ID)
-      .then(({ data }) => { if (data) setFoods(data) })
-
-    const ch = supabase.channel('sidebar_food_items')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'food_items', filter: `family_id=eq.${DEMO_FAMILY_ID}` }, payload => {
-        if (payload.eventType === 'INSERT') setFoods(f => [...f, payload.new])
-        if (payload.eventType === 'DELETE') setFoods(f => f.filter(x => x.id !== payload.old.id))
-        if (payload.eventType === 'UPDATE') setFoods(f => f.map(x => x.id === payload.new.id ? payload.new : x))
-      })
-      .subscribe()
-
-    return () => supabase.removeChannel(ch)
-  }, [])
-
-  async function handleAddFood({ name, category }) {
-    const optimistic = { id: crypto.randomUUID(), family_id: DEMO_FAMILY_ID, name, category }
-    setFoods(f => [...f, optimistic])
-    const { data } = await supabase.from('food_items').insert({ family_id: DEMO_FAMILY_ID, name, category }).select().single()
-    if (data) setFoods(f => f.map(x => x.id === optimistic.id ? data : x))
+  function handleAddFood({ name, category }) {
+    addFoodItem({ name, category })
   }
 
-  async function handleDelete(food) {
-    setFoods(f => f.filter(x => x.id !== food.id))
-    await supabase.from('food_items').delete().eq('id', food.id)
+  function handleDelete(food) {
+    deleteFoodItem(food.id)
   }
 
-  async function handleChangeCategory(food, newCategory) {
-    setFoods(f => f.map(x => x.id === food.id ? { ...x, category: newCategory } : x))
-    await supabase.from('food_items').update({ category: newCategory }).eq('id', food.id)
+  function handleChangeCategory(food, newCategory) {
+    updateFoodItemCategory(food.id, newCategory)
   }
 
-  const existingNames = foods.map(f => f.name)
+  const existingNames = foodItems.map(f => f.name)
 
   return (
     <div style={{ padding: '20px 16px', height: '100%', display: 'flex', flexDirection: 'column' }}>
@@ -243,7 +222,7 @@ export default function FoodSidebar() {
           <Section
             key={cfg.key}
             config={cfg}
-            foods={foods.filter(f => f.category === cfg.key)}
+            foods={foodItems.filter(f => f.category === cfg.key)}
             onDelete={handleDelete}
             onChangeCategory={handleChangeCategory}
           />
