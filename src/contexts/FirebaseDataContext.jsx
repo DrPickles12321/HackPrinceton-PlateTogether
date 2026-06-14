@@ -72,6 +72,7 @@ export function FirebaseDataProvider({ children }) {
   const [supplementLog, setSupplementLog]             = useState({})
   const [clinicianNotesRead, setClinicianNotesRead]   = useState({})
   const [savedClinicianNotes, setSavedClinicianNotes] = useState([])
+  const [ownClinicianNotes, setOwnClinicianNotes]     = useState([])
   const [foodItems, setFoodItems]                     = useState([])
   const [familyCode, setFamilyCode]                   = useState(null)
 
@@ -83,6 +84,7 @@ export function FirebaseDataProvider({ children }) {
   const [ownPrescribedSupplements, setOwnPrescribedSupplements]       = useState([])
   const [patientPrescribedSupplements, setPatientPrescribedSupplements] = useState([])
   const [patientParentNotesByDate, setPatientParentNotesByDate] = useState({})
+  const [patientClinicianNotes, setPatientClinicianNotes] = useState([])
 
   // ── Subscribe to own data ──────────────────────────────────────────────────
   useEffect(() => {
@@ -94,6 +96,7 @@ export function FirebaseDataProvider({ children }) {
       setSupplementLog({})
       setClinicianNotesRead({})
       setSavedClinicianNotes([])
+      setOwnClinicianNotes([])
       setFoodItems([])
       setFamilyCode(null)
       setPatients([])
@@ -147,6 +150,11 @@ export function FirebaseDataProvider({ children }) {
       setSavedClinicianNotes(val ? Object.values(val) : [])
     }))
 
+    unsubs.push(onValue(ref(db, `${base}/clinicianNotes`), snap => {
+      const val = snap.val()
+      setOwnClinicianNotes(val ? Object.values(val).sort((a, b) => (b.created_at || '').localeCompare(a.created_at || '')) : [])
+    }))
+
     unsubs.push(onValue(ref(db, `${base}/foodItems`), snap => {
       const val = snap.val()
       setFoodItems(val ? Object.values(val) : [])
@@ -190,6 +198,7 @@ export function FirebaseDataProvider({ children }) {
       setPatientNutritionalTargets(null)
       setPatientPrescribedSupplements([])
       setPatientParentNotesByDate({})
+      setPatientClinicianNotes([])
       return
     }
     const unsubs = []
@@ -207,6 +216,10 @@ export function FirebaseDataProvider({ children }) {
     unsubs.push(onValue(ref(db, `users/${viewingPatientUid}/parentNotes`), snap => {
       setPatientParentNotesByDate(snap.val() || {})
     }))
+    unsubs.push(onValue(ref(db, `users/${viewingPatientUid}/clinicianNotes`), snap => {
+      const val = snap.val()
+      setPatientClinicianNotes(val ? Object.values(val).sort((a, b) => (b.created_at || '').localeCompare(a.created_at || '')) : [])
+    }))
     return () => unsubs.forEach(u => u())
   }, [viewingPatientUid])
 
@@ -218,6 +231,7 @@ export function FirebaseDataProvider({ children }) {
   const activeParentNotesByDate = viewingPatientUid ? patientParentNotesByDate : parentNotesByDate
   const parentNotesArray       = Object.values(activeParentNotesByDate)
   const prescribedSupplements  = viewingPatientUid ? patientPrescribedSupplements : ownPrescribedSupplements
+  const clinicianNotes         = viewingPatientUid ? patientClinicianNotes : ownClinicianNotes
 
   // ── Write functions ────────────────────────────────────────────────────────
 
@@ -353,6 +367,26 @@ export function FirebaseDataProvider({ children }) {
     setSavedClinicianNotes([])
   }
 
+  function writeClinicianNote({ body, existingNoteId }) {
+    if (!viewingPatientUid) return
+    if (existingNoteId) {
+      const existing = patientClinicianNotes.find(n => n.id === existingNoteId)
+      const note = { ...existing, body }
+      set(ref(db, `users/${viewingPatientUid}/clinicianNotes/${existingNoteId}`), note)
+      setPatientClinicianNotes(prev => prev.map(n => n.id === existingNoteId ? note : n))
+    } else {
+      const note = { id: crypto.randomUUID(), body, created_at: new Date().toISOString() }
+      set(ref(db, `users/${viewingPatientUid}/clinicianNotes/${note.id}`), note)
+      setPatientClinicianNotes(prev => [note, ...prev])
+    }
+  }
+
+  function deleteClinicianNote(noteId) {
+    if (!viewingPatientUid) return
+    set(ref(db, `users/${viewingPatientUid}/clinicianNotes/${noteId}`), null)
+    setPatientClinicianNotes(prev => prev.filter(n => n.id !== noteId))
+  }
+
   function savePrescribedSupplements(supplements) {
     const targetUid = viewingPatientUid || uid
     if (!targetUid) return
@@ -396,6 +430,9 @@ export function FirebaseDataProvider({ children }) {
       saveClinicianNote,
       unsaveClinicianNote,
       clearAllSavedNotes,
+      clinicianNotes,
+      writeClinicianNote,
+      deleteClinicianNote,
       setMealItems,
       setMealStatus,
       familyCode,
