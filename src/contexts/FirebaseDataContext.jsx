@@ -72,6 +72,7 @@ export function FirebaseDataProvider({ children }) {
   const [supplementLog, setSupplementLog]             = useState({})
   const [clinicianNotesRead, setClinicianNotesRead]   = useState({})
   const [savedClinicianNotes, setSavedClinicianNotes] = useState([])
+  const [foodItems, setFoodItems]                     = useState([])
   const [familyCode, setFamilyCode]                   = useState(null)
 
   // ── Clinician patient management ──────────────────────────────────────────
@@ -93,6 +94,7 @@ export function FirebaseDataProvider({ children }) {
       setSupplementLog({})
       setClinicianNotesRead({})
       setSavedClinicianNotes([])
+      setFoodItems([])
       setFamilyCode(null)
       setPatients([])
       setViewingPatientUid(null)
@@ -143,6 +145,11 @@ export function FirebaseDataProvider({ children }) {
     unsubs.push(onValue(ref(db, `${base}/savedClinicianNotes`), snap => {
       const val = snap.val()
       setSavedClinicianNotes(val ? Object.values(val) : [])
+    }))
+
+    unsubs.push(onValue(ref(db, `${base}/foodItems`), snap => {
+      const val = snap.val()
+      setFoodItems(val ? Object.values(val) : [])
     }))
 
     unsubs.push(onValue(ref(db, `${base}/familyCode`), snap => {
@@ -320,6 +327,26 @@ export function FirebaseDataProvider({ children }) {
     setSavedClinicianNotes(prev => prev.filter(n => n.id !== noteId))
   }
 
+  function addFoodItem({ name, category }) {
+    if (!uid) return
+    const id = crypto.randomUUID()
+    const food = { id, name, category }
+    set(ref(db, `users/${uid}/foodItems/${id}`), food)
+    setFoodItems(prev => [...prev, food])
+  }
+
+  function deleteFoodItem(id) {
+    if (!uid) return
+    set(ref(db, `users/${uid}/foodItems/${id}`), null)
+    setFoodItems(prev => prev.filter(f => f.id !== id))
+  }
+
+  function updateFoodItemCategory(id, category) {
+    if (!uid) return
+    set(ref(db, `users/${uid}/foodItems/${id}/category`), category)
+    setFoodItems(prev => prev.map(f => f.id === id ? { ...f, category } : f))
+  }
+
   function clearAllSavedNotes() {
     if (!uid) return
     set(ref(db, `users/${uid}/savedClinicianNotes`), null)
@@ -378,6 +405,10 @@ export function FirebaseDataProvider({ children }) {
       viewingPatientUid,
       setViewingPatientUid,
       addPatientByCode,
+      foodItems,
+      addFoodItem,
+      deleteFoodItem,
+      updateFoodItemCategory,
     }}>
       {children}
     </FirebaseDataContext.Provider>
