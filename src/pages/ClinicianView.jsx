@@ -100,7 +100,6 @@ export default function ClinicianView() {
   const [mealSlots, setMealSlots] = useState([])
   const [foodItems, setFoodItems] = useState([])
   const [mealLogs, setMealLogs] = useState([])
-  const [notes, setNotes] = useState([])
 
   const {
     parentNotesArray: parentNotes,
@@ -115,6 +114,8 @@ export default function ClinicianView() {
     addPatientByCode,
     prescribedSupplements,
     savePrescribedSupplements,
+    clinicianNotes,
+    writeClinicianNote,
   } = useFirebaseData()
 
   const [addCodeInput, setAddCodeInput]   = useState('')
@@ -154,24 +155,20 @@ export default function ClinicianView() {
     setLoading(true)
     setError(null)
     try {
-      const [slotsRes, foodsRes, logsRes, notesRes] = await Promise.all([
+      const [slotsRes, foodsRes, logsRes] = await Promise.all([
         supabase.from('meal_slots').select('*').eq('family_id', DEMO_FAMILY_ID),
         supabase.from('food_items').select('*').eq('family_id', DEMO_FAMILY_ID),
         supabase.from('meal_logs')
           .select('*, meal_slots!inner(family_id)')
           .eq('meal_slots.family_id', DEMO_FAMILY_ID)
           .order('logged_at', { ascending: false }),
-        supabase.from('clinician_notes').select('*').eq('family_id', DEMO_FAMILY_ID)
-          .order('created_at', { ascending: false }),
       ])
       if (slotsRes.error) throw slotsRes.error
       if (foodsRes.error) throw foodsRes.error
       if (logsRes.error) throw logsRes.error
-      if (notesRes.error) throw notesRes.error
       setMealSlots(slotsRes.data || [])
       setFoodItems(foodsRes.data || [])
       setMealLogs(logsRes.data || [])
-      setNotes(notesRes.data || [])
     } catch (err) {
       console.error('Failed to load clinician data:', err)
       setError('Could not load the board. Please refresh.')
@@ -214,39 +211,12 @@ export default function ClinicianView() {
     },
   })
 
-  useRealtime({
-    table: 'clinician_notes',
-    familyId: DEMO_FAMILY_ID,
-    onInsert: row => setNotes(c => [row, ...c]),
-    onUpdate: row => setNotes(c => c.map(n => n.id === row.id ? row : n)),
-    onDelete: row => setNotes(c => c.filter(n => n.id !== row.id)),
-  })
-
   function handleMarkNoteRead(noteId) {
     markPatientParentNoteReadById(noteId)
   }
 
-  async function handleDeleteNote(noteId) {
-    setNotes(c => c.filter(n => n.id !== noteId))
-    await supabase.from('clinician_notes').delete().eq('id', noteId)
-  }
-
-  async function handleSaveNote({ body, existingNoteId }) {
-    if (existingNoteId) {
-      const { error } = await supabase
-        .from('clinician_notes')
-        .update({ body })
-        .eq('id', existingNoteId)
-      if (error) throw error
-      setNotes(c => c.map(n => n.id === existingNoteId ? { ...n, body } : n))
-    } else {
-      const { data, error } = await supabase
-        .from('clinician_notes')
-        .insert({ family_id: DEMO_FAMILY_ID, body, slot_id: null })
-        .select().single()
-      if (error) throw error
-      setNotes(c => [data, ...c])
-    }
+  function handleSaveNote({ body, existingNoteId }) {
+    writeClinicianNote({ body, existingNoteId })
   }
 
   async function handleScheduleAppointment(e) {
@@ -445,7 +415,7 @@ export default function ClinicianView() {
             </form>
           </div>
           <NotesPanel
-            notes={notes}
+            notes={clinicianNotes}
             mode="clinician"
             onSave={handleSaveNote}
             notesReadByParent={clinicianNotesRead}
