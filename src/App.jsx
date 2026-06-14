@@ -1,12 +1,10 @@
 import { useEffect } from 'react'
 import { BrowserRouter, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom'
-import { RealtimeProvider } from './contexts/RealtimeContext'
 import { NutritionalTargetsProvider } from './contexts/NutritionalTargetsContext'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
 import { FirebaseDataProvider } from './contexts/FirebaseDataContext'
 import Navbar from './components/Navbar'
 import LoginScreen from './components/LoginScreen'
-import Login from './pages/Login'
 import ParentView from './pages/ParentView'
 import DailyView from './pages/DailyView'
 import WeeklyView from './pages/WeeklyView'
@@ -57,7 +55,7 @@ function AppLayout() {
     <>
       {pathname !== '/' && <Navbar />}
       <Routes>
-        <Route path="/" element={<Login />} />
+        <Route path="/" element={<Navigate to="/parent/daily" replace />} />
         <Route path="/parent" element={<ParentView />}>
           <Route index element={<Navigate to="daily" replace />} />
           <Route path="daily" element={<DailyView />} />
@@ -76,11 +74,9 @@ export default function App() {
     <AuthProvider>
       <FirebaseDataProvider>
         <NutritionalTargetsProvider>
-          <RealtimeProvider>
-            <BrowserRouter>
-              <AppLayout />
-            </BrowserRouter>
-          </RealtimeProvider>
+          <BrowserRouter>
+            <AppLayout />
+          </BrowserRouter>
         </NutritionalTargetsProvider>
       </FirebaseDataProvider>
     </AuthProvider>

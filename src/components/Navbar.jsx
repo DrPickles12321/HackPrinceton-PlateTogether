@@ -2,9 +2,7 @@ import { NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { signOut } from 'firebase/auth'
 import { auth } from '../firebase'
 import { useAuth } from '../contexts/AuthContext'
-import { useRealtimeStatus } from '../contexts/RealtimeContext'
 import { useFirebaseData } from '../contexts/FirebaseDataContext'
-import LiveIndicator from './LiveIndicator'
 
 const PARENT_TABS = [
   { to: '/parent/daily',  label: 'Daily' },
@@ -13,7 +11,6 @@ const PARENT_TABS = [
 ]
 
 export default function Navbar() {
-  const { status } = useRealtimeStatus()
   const { role } = useAuth()
   const { familyCode } = useFirebaseData()
   const navigate = useNavigate()
@@ -100,7 +97,6 @@ export default function Navbar() {
                 Code: <span style={{ fontWeight: 700, color: 'var(--text-mid)', letterSpacing: '1px' }}>{familyCode}</span>
               </div>
             )}
-            <LiveIndicator status={status} />
 
             <button
               onClick={() => { localStorage.removeItem('demoRole'); signOut(auth) }}

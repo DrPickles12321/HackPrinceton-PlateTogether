@@ -153,7 +153,7 @@ function DropZone({ mealType, items, onRemove, onFoodClick, selectedFoodIndex })
 
 // ─── Meal card ────────────────────────────────────────────────────────────────
 
-function MealCard({ meal, slot, items, onRemove, latestLog, onQuickLog, time, onTimeChange, selectedFoodIndex, onFoodClick, onFoodStatusSet }) {
+function MealCard({ meal, items, onRemove, latestLog, onQuickLog, time, onTimeChange, selectedFoodIndex, onFoodClick, onFoodStatusSet }) {
   const loggedStatus = latestLog?.status || null
   const hasItems = items.length > 0
   const initialTime = parseTimeValue(time)
@@ -267,7 +267,7 @@ function MealCard({ meal, slot, items, onRemove, latestLog, onQuickLog, time, on
               return (
                 <button
                   key={opt.key}
-                  onClick={() => hasItems && onQuickLog(slot, opt.key)}
+                  onClick={() => hasItems && onQuickLog(opt.key)}
                   disabled={!hasItems}
                   style={{
                     display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2,
@@ -709,8 +709,8 @@ function ClinicianNotesSidebar({ clinicianNotes, clinicianNotesRead, markClinici
           </button>
           {showSaved && savedClinicianNotes.length > 0 && (
             <div style={{ borderTop: '1px solid var(--border)' }}>
-              {[...savedClinicianNotes].reverse().map(note => (
-                <div key={note.id} style={{
+              {[...savedClinicianNotes].reverse().map((note, i) => (
+                <div key={`${note.id}-${i}`} style={{
                   backgroundImage: 'repeating-linear-gradient(transparent, transparent 27px, #e8e0d4 27px, #e8e0d4 28px)',
                   backgroundSize: '100% 28px', backgroundPositionY: '4px',
                   display: 'flex', borderBottom: '1px solid var(--border)',
@@ -784,12 +784,12 @@ function ClinicianNotesSidebar({ clinicianNotes, clinicianNotesRead, markClinici
             </button>
             {showAll && (
               <div style={{ borderTop: '1px solid var(--border)' }}>
-                {olderNotes.filter(n => !hiddenNoteIds.includes(n.id)).map(note => {
+                {olderNotes.filter(n => !hiddenNoteIds.includes(n.id)).map((note, i) => {
                   const isExpanded = expandedNoteId === note.id
                   const preview = note.body?.length > 50 ? note.body.slice(0, 50) + '…' : note.body
                   return (
                     <div
-                      key={note.id}
+                      key={`${note.id}-${i}`}
                       onClick={() => setExpandedNoteId(isExpanded ? null : note.id)}
                       style={{
                         position: 'relative', padding: '8px 28px 8px 12px',
@@ -827,7 +827,7 @@ function ClinicianNotesSidebar({ clinicianNotes, clinicianNotesRead, markClinici
 // ─── Main view ────────────────────────────────────────────────────────────────
 
 export default function DailyView() {
-  const { mealSlots, foodItems, mealLogs, clinicianNotes = [], parentNotes = [], clinicianNotesRead = {}, mealStatuses = {}, savedClinicianNotes = [], weekOffset = 0, setWeekOffset, insertMealLog, saveParentNote, markClinicianNoteRead, saveClinicianNote, unsaveClinicianNote, clearAllSavedNotes, setMealStatus } = useOutletContext()
+  const { clinicianNotes = [], parentNotes = [], clinicianNotesRead = {}, mealStatuses = {}, savedClinicianNotes = [], weekOffset = 0, setWeekOffset, saveParentNote, markClinicianNoteRead, saveClinicianNote, unsaveClinicianNote, clearAllSavedNotes, setMealStatus } = useOutletContext()
   const [selectedDay, setSelectedDay] = useState(getTodayKey)
   const [activeDrag, setActiveDrag] = useState(null)
   const [selectedFood, setSelectedFood] = useState(null)
@@ -879,19 +879,7 @@ export default function DailyView() {
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }))
 
-  function getSlot(mealType) {
-    return mealSlots.find(s => s.day === selectedDay && s.meal_type === mealType)
-      || { id: null, day: selectedDay, meal_type: mealType, assigned_food_id: null }
-  }
-
-  function getLatestLog(slotId) {
-    if (!slotId) return null
-    return [...mealLogs]
-      .filter(l => l.meal_slot_id === slotId)
-      .sort((a, b) => new Date(b.logged_at) - new Date(a.logged_at))[0] || null
-  }
-
-  // Weekly status counts from Firebase mealStatuses (per-user, not shared Supabase)
+  // Weekly status counts from Firebase mealStatuses
   const weeklyStatusCounts = useMemo(() => {
     let okay = 0, difficult = 0, refused = 0
     for (const dateStatuses of Object.values(mealStatuses)) {
@@ -923,11 +911,8 @@ export default function DailyView() {
     }
   }
 
-  async function handleQuickLog(slot, mealType, status) {
+  function handleQuickLog(mealType, status) {
     setMealStatus(selectedDate, mealType, status)
-    if (slot?.id) {
-      try { await insertMealLog({ slotId: slot.id, status, note: null }) } catch {}
-    }
   }
 
   return (
@@ -1022,21 +1007,17 @@ export default function DailyView() {
           {/* Meal cards */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             {MEALS.map(meal => {
-              const slot = getSlot(meal.key)
               const hasItems = mealItems[meal.key].length > 0
               const localStatus = hasItems ? (mealStatuses[selectedDate] || {})[meal.key] ?? null : null
-              const latestLog = localStatus
-                ? { status: localStatus }
-                : (hasItems ? getLatestLog(slot?.id) : null)
+              const latestLog = localStatus ? { status: localStatus } : null
               return (
                 <MealCard
                   key={meal.key}
                   meal={meal}
-                  slot={slot}
                   items={mealItems[meal.key]}
                   onRemove={index => removeItem(meal.key, index)}
                   latestLog={latestLog}
-                  onQuickLog={(slot, status) => handleQuickLog(slot, meal.key, status)}
+                  onQuickLog={status => handleQuickLog(meal.key, status)}
                   time={mealTimes[meal.key]}
                   onTimeChange={updateMealTime}
                   selectedFoodIndex={selectedFood?.mealType === meal.key ? selectedFood.index : null}
@@ -1123,9 +1104,6 @@ export default function DailyView() {
 
           <div style={{ marginTop: 22 }}>
             <SupplementChecklist
-              mealSlots={mealSlots}
-              foodItems={foodItems}
-              selectedDay={selectedDay}
               checkedSupplements={checkedSupplements}
               onToggleChecked={handleToggleSupplement}
               prescribedSupplements={prescribedSupplements}

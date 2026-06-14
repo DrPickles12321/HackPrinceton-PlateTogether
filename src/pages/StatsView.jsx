@@ -106,7 +106,7 @@ function AIInsightsSection({ weekStatuses, allMealItems = {} }) {
 }
 
 export default function StatsView() {
-  const { mealSlots, foodItems, mealLogs, mealStatuses = {}, allMealItems = {} } = useOutletContext()
+  const { mealStatuses = {}, allMealItems = {} } = useOutletContext()
 
   const thisWeekStatuses = useMemo(() => {
     const weekDates = getThisWeekIsoDates()

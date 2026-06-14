@@ -158,7 +158,7 @@ function DayPopover({ day, macros, style, popoverRef }) {
 // ─── Main view ────────────────────────────────────────────────────────────────
 
 export default function WeeklyView() {
-  const { mealSlots, foodItems, mealLogs, mealStatuses = {}, allMealItems = {}, weekOffset = 0, setWeekOffset } = useOutletContext()
+  const { mealStatuses = {}, allMealItems = {}, weekOffset = 0, setWeekOffset } = useOutletContext()
   const [openDay, setOpenDay]         = useState(null)
   const [popoverPos, setPopoverPos]   = useState({ top: 0, left: 0 })
   const popoverRef  = useRef(null)
@@ -175,15 +175,6 @@ export default function WeeklyView() {
     document.addEventListener('mousedown', onDown)
     return () => document.removeEventListener('mousedown', onDown)
   }, [openDay])
-
-  // ── latest log per slot ──
-  const latestLogBySlot = useMemo(() => {
-    const map = {}
-    for (const log of [...mealLogs].sort((a, b) => new Date(a.logged_at) - new Date(b.logged_at))) {
-      map[log.meal_slot_id] = log
-    }
-    return map
-  }, [mealLogs])
 
   // ── compute macros for a day ──
   const macrosByDay = useMemo(() => {
@@ -206,7 +197,7 @@ export default function WeeklyView() {
       }
     }
     return result
-  }, [weekDates, mealSlots, foodItems, allMealItems])
+  }, [weekDates, allMealItems])
 
   // ── day header click → compute viewport-safe position ──
   const handleDayClick = useCallback((dayKey) => {
@@ -219,22 +210,6 @@ export default function WeeklyView() {
     setPopoverPos({ top: rect.bottom + 8, left: clampedLeft })
     setOpenDay(dayKey)
   }, [openDay])
-
-  function getSlot(day, mealType) {
-    return mealSlots.find(s => s.day === day && s.meal_type === mealType) || null
-  }
-
-  const { totalLogged, okayCount } = useMemo(() => {
-    let total = 0, okay = 0
-    for (const dateStatuses of Object.values(mealStatuses)) {
-      for (const status of Object.values(dateStatuses)) {
-        total++
-        if (status === 'okay') okay++
-      }
-    }
-    return { totalLogged: total, okayCount: okay }
-  }, [mealStatuses])
-  const pct = totalLogged > 0 ? Math.round((okayCount / totalLogged) * 100) : 0
 
   const openDayObj = DAYS.find(d => d.key === openDay)
 

@@ -8,7 +8,7 @@ const MEAL_ORDER = ['breakfast', 'lunch', 'dinner', 'snack']
 const MEAL_LABEL = { breakfast: 'Breakfast', lunch: 'Lunch', dinner: 'Dinner', snack: 'Snack' }
 const DAY_LABEL = { mon: 'Monday', tue: 'Tuesday', wed: 'Wednesday', thu: 'Thursday', fri: 'Friday', sat: 'Saturday', sun: 'Sunday' }
 
-export default function DailyNutritionSummary({ day, dateIso, mealSlots, foodItems, loggedMealItems = {}, onClose }) {
+export default function DailyNutritionSummary({ day, loggedMealItems = {}, onClose }) {
   const mealData = useMemo(() => {
     return MEAL_ORDER.flatMap(mealType => {
       const items = loggedMealItems[mealType] || []

@@ -1,17 +1,7 @@
-import { useMemo } from 'react'
-import { computeSupplementRecommendations } from '../lib/insights'
-
-export default function SupplementChecklist({ mealSlots, foodItems, selectedDay, checkedSupplements, onToggleChecked, prescribedSupplements = [] }) {
-  const recommendations = useMemo(
-    () => computeSupplementRecommendations({ mealSlots: mealSlots.filter(slot => slot.day === selectedDay), foodItems }),
-    [mealSlots, foodItems, selectedDay]
-  )
-
+export default function SupplementChecklist({ checkedSupplements, onToggleChecked, prescribedSupplements = [] }) {
   const items = prescribedSupplements.length > 0
     ? prescribedSupplements.map(name => ({ nutrient: name }))
-    : recommendations.length > 0
-      ? recommendations
-      : []
+    : []
 
   return (
     <div style={{ position: 'relative', paddingTop: 14 }}>

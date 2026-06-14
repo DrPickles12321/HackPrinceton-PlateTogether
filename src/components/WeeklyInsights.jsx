@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { computeInsights, computeNutritionInsights, computeInsightsFromMealItems, computeNutritionInsightsFromMealItems } from '../lib/insights'
+import { computeInsightsFromMealItems, computeNutritionInsightsFromMealItems } from '../lib/insights'
 import { FLAG_CONFIG } from './nutrition/FlagChip'
 
 const MEAL_LABELS = { breakfast: 'breakfasts', lunch: 'lunches', dinner: 'dinners', snack: 'snacks' }
@@ -24,7 +24,7 @@ function StatCard({ icon, label, value, subtext, tone = 'neutral' }) {
   )
 }
 
-export default function WeeklyInsights({ mealLogs, foodItems, mealSlots, allMealItems, mealStatuses }) {
+export default function WeeklyInsights({ allMealItems, mealStatuses }) {
   const hasAnyLoggedFood = allMealItems && Object.values(allMealItems).some(
     dayMeals => Object.values(dayMeals).some(
       items => Array.isArray(items) && items.length > 0
@@ -32,22 +32,16 @@ export default function WeeklyInsights({ mealLogs, foodItems, mealSlots, allMeal
   )
 
   const insights = useMemo(() => {
-    if (allMealItems !== undefined) {
-      return hasAnyLoggedFood
-        ? computeInsightsFromMealItems(allMealItems, mealStatuses)
-        : { totalLogs: 0, okay: 0, difficult: 0, refused: 0, hardestMealType: null, topRefusedCategory: null }
-    }
-    return computeInsights({ mealLogs, foodItems, mealSlots })
-  }, [allMealItems, hasAnyLoggedFood, mealLogs, foodItems, mealSlots])
+    return hasAnyLoggedFood
+      ? computeInsightsFromMealItems(allMealItems, mealStatuses)
+      : { totalLogs: 0, okay: 0, difficult: 0, refused: 0, hardestMealType: null, topRefusedCategory: null }
+  }, [allMealItems, mealStatuses, hasAnyLoggedFood])
 
   const nutritionInsights = useMemo(() => {
-    if (allMealItems !== undefined) {
-      return hasAnyLoggedFood
-        ? computeNutritionInsightsFromMealItems(allMealItems)
-        : { avgDailyCalories: null, topRecoveryNutrient: null }
-    }
-    return computeNutritionInsights({ mealSlots, foodItems })
-  }, [allMealItems, hasAnyLoggedFood, mealSlots, foodItems])
+    return hasAnyLoggedFood
+      ? computeNutritionInsightsFromMealItems(allMealItems)
+      : { avgDailyCalories: null, topRecoveryNutrient: null }
+  }, [allMealItems, hasAnyLoggedFood])
 
   return (
     <section className="mt-8 bg-gray-50 rounded-xl p-6">
