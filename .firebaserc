@@ -1,5 +1,18 @@
 {
   "projects": {
     "default": "platetogether-66beb"
-  }
+  },
+  "targets": {
+    "platetogether-66beb": {
+      "hosting": {
+        "main": [
+          "platetogether-66beb"
+        ],
+        "plate": [
+          "platetogether"
+        ]
+      }
+    }
+  },
+  "etags": {}
 }
