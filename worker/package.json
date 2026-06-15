@@ -1,0 +1,16 @@
+{
+  "name": "platetogether-ai-proxy",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "secret": "wrangler secret put ANTHROPIC_API_KEY"
+  },
+  "dependencies": {
+    "jose": "^5.9.6"
+  },
+  "devDependencies": {
+    "wrangler": "^3.99.0"
+  }
+}

@@ -1,28 +1,31 @@
+import { auth } from '../firebase'
 import { lookupNutrition } from './nutritionService'
 
+const AI_PROXY_URL = import.meta.env.VITE_AI_PROXY_URL
+
 async function callClaude(prompt) {
-  const key = import.meta.env.VITE_ANTHROPIC_API_KEY
-  if (!key) throw new Error('VITE_ANTHROPIC_API_KEY is not set in .env — restart the dev server after adding it')
-  const res = await fetch('https://api.anthropic.com/v1/messages', {
+  if (!AI_PROXY_URL) throw new Error('AI proxy URL is not configured')
+
+  const user = auth.currentUser
+  if (!user) throw new Error('Sign in required')
+  const idToken = await user.getIdToken()
+
+  const res = await fetch(AI_PROXY_URL, {
     method: 'POST',
     headers: {
-      'x-api-key': key,
-      'anthropic-version': '2023-06-01',
-      'anthropic-dangerous-direct-browser-access': 'true', // required for direct browser calls; use a backend proxy in production
-      'content-type': 'application/json',
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${idToken}`,
     },
-    body: JSON.stringify({
-      model: 'claude-haiku-4-5-20251001',
-      max_tokens: 500,
-      messages: [{ role: 'user', content: prompt }],
-    }),
+    body: JSON.stringify({ prompt }),
   })
+
   if (!res.ok) {
     const errText = await res.text()
-    throw new Error(`Anthropic API ${res.status}: ${errText}`)
+    throw new Error(`AI proxy ${res.status}: ${errText}`)
   }
+
   const data = await res.json()
-  return data.content[0]?.text?.trim() || ''
+  return data?.text?.trim() || ''
 }
 
 function extractJSON(text) {
@@ -68,6 +71,51 @@ Write 3 short cheerful observations. Rules:
 - Each item is one short sentence (under 20 words)
 - If meals were skipped or hard, still find something positive to say
 - Return ONLY valid JSON, nothing else: [{ "type": "positive"|"tip"|"notice", "icon": "<single emoji>", "text": "..." }]`
+
+  const raw = await callClaude(prompt)
+  const parsed = extractJSON(raw)
+  return Array.isArray(parsed) ? parsed : null
+}
+
+export async function generateClinicianDigest({ mealItemsByDate, mealStatusesByDate = {}, parentNotes = [] }) {
+  const dates = Object.keys(mealItemsByDate).sort()
+  const daysWithFood = dates.filter(d =>
+    Object.values(mealItemsByDate[d]).flat().length > 0
+  )
+  if (daysWithFood.length === 0) return null
+
+  const daySummaries = daysWithFood.map(date => {
+    const day = mealItemsByDate[date]
+    const statuses = mealStatusesByDate[date] || {}
+    const meals = Object.entries(day)
+      .filter(([, items]) => items.length > 0)
+      .map(([meal, items]) => {
+        const names = items.map(f => f.name).join(', ')
+        const status = statuses[meal] || 'okay'
+        return `  ${meal}: ${names} [${status}]`
+      }).join('\n')
+    return `${date}:\n${meals}`
+  }).join('\n\n')
+
+  const notesText = parentNotes.length
+    ? parentNotes.map(n => `- ${n.date}: ${n.body}`).join('\n')
+    : '(none this week)'
+
+  const prompt = `You are assisting a clinician on a family-based treatment team supporting a patient in eating disorder recovery. Review this patient's meal log for the week and summarize it for a quick clinical scan before a session.
+
+This week's meal log (status in brackets is okay, difficult, or refused):
+${daySummaries}
+
+Parent notes this week:
+${notesText}
+
+Write 3-4 short, factual observations. Rules:
+- Be neutral and observational, not diagnostic or prescriptive
+- Do not suggest treatment changes or next steps — just describe patterns
+- Note specific meal types, foods, or days where relevant
+- Flag anything in the parent notes worth the clinician's attention
+- Each item is one or two sentences
+- Return ONLY valid JSON, nothing else: [{ "type": "pattern"|"improvement"|"watch", "text": "..." }]`
 
   const raw = await callClaude(prompt)
   const parsed = extractJSON(raw)

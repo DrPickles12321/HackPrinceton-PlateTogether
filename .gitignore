@@ -13,6 +13,8 @@ dist-ssr
 *.local
 .env
 agent/.env
+.wrangler
+.dev.vars
 
 # Editor directories and files
 .vscode/*

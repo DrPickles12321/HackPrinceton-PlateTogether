@@ -1,20 +1,9 @@
-import { useMemo, useState, useEffect } from 'react'
+import { useMemo, useState, useEffect, useRef } from 'react'
 import { useOutletContext } from 'react-router-dom'
 import { generateWeeklyInsights } from '../lib/aiInsights'
+import { getWeekIsoDates } from '../lib/insights'
 
 const MEAL_LABELS = { breakfast: 'Breakfast', lunch: 'Lunch', snack: 'Snack', dinner: 'Dinner' }
-
-function getWeekIsoDates(offset = 0) {
-  const today = new Date()
-  const dow = today.getDay()
-  const monday = new Date(today)
-  monday.setDate(today.getDate() - (dow === 0 ? 6 : dow - 1) + offset * 7)
-  return Array.from({ length: 7 }, (_, i) => {
-    const d = new Date(monday)
-    d.setDate(monday.getDate() + i)
-    return d.toISOString().slice(0, 10)
-  })
-}
 
 function computeWeekStats(weekStatuses, allMealItems, weekDates) {
   const total     = weekStatuses.length
@@ -91,16 +80,21 @@ function AIInsightsSection({ weekStatuses, allMealItems = {} }) {
   const [insights, setInsights] = useState(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
+  const loadedRef = useRef(false)
+
+  const thisWeekItems = useMemo(() => {
+    const weekDates = new Set(getWeekIsoDates(0))
+    return Object.fromEntries(
+      Object.entries(allMealItems).filter(([date]) => weekDates.has(date))
+    )
+  }, [allMealItems])
+
+  const hasFoods = useMemo(
+    () => Object.values(thisWeekItems).some(d => Object.values(d).flat().length > 0),
+    [thisWeekItems]
+  )
 
   function load() {
-    const allStored = allMealItems
-    const weekDates = new Set(getWeekIsoDates(0))
-    const thisWeekItems = Object.fromEntries(
-      Object.entries(allStored).filter(([date]) => weekDates.has(date))
-    )
-    const hasFoods = Object.values(thisWeekItems).some(d => Object.values(d).flat().length > 0)
-    if (!hasFoods) return
-
     const statusCounts = {
       okay: weekStatuses.filter(s => s.status === 'okay').length,
       difficult: weekStatuses.filter(s => s.status === 'difficult').length,
@@ -113,7 +107,13 @@ function AIInsightsSection({ weekStatuses, allMealItems = {} }) {
       .catch(err => { console.error('AI insights error:', err); setError(true); setLoading(false) })
   }
 
-  useEffect(() => { load() }, [])
+  useEffect(() => {
+    if (hasFoods && !loadedRef.current) {
+      loadedRef.current = true
+      load()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasFoods])
 
   if (!loading && !error && !insights) return null
 

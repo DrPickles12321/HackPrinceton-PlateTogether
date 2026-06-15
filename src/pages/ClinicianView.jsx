@@ -1,5 +1,106 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useFirebaseData } from '../contexts/FirebaseDataContext'
+import { generateClinicianDigest } from '../lib/aiInsights'
+import { getWeekIsoDates } from '../lib/insights'
+
+const DIGEST_STYLES = {
+  pattern:     { bg: '#f3f4f6', border: '#e5e7eb', icon: '📋' },
+  improvement: { bg: '#ecfdf5', border: '#a7f3d0', icon: '🌱' },
+  watch:       { bg: '#fffbeb', border: '#fde68a', icon: '👀' },
+}
+
+function ClinicianDigestSection({ allMealItems, mealStatuses, parentNotes }) {
+  const [digest, setDigest] = useState(null)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState(null)
+
+  const weekDates = useMemo(() => new Set(getWeekIsoDates(0)), [])
+
+  function load() {
+    const thisWeekItems = Object.fromEntries(
+      Object.entries(allMealItems).filter(([date]) => weekDates.has(date))
+    )
+    const thisWeekStatuses = Object.fromEntries(
+      Object.entries(mealStatuses).filter(([date]) => weekDates.has(date))
+    )
+    const thisWeekNotes = parentNotes.filter(n => weekDates.has(n.date))
+
+    setLoading(true)
+    setError(null)
+    generateClinicianDigest({
+      mealItemsByDate: thisWeekItems,
+      mealStatusesByDate: thisWeekStatuses,
+      parentNotes: thisWeekNotes,
+    })
+      .then(result => { setDigest(result || []); setLoading(false) })
+      .catch(err => { console.error('Clinician digest error:', err); setError(true); setLoading(false) })
+  }
+
+  return (
+    <div style={{
+      background: 'white', borderRadius: 16, border: '1.5px solid #e5e7eb',
+      padding: '20px 24px', marginTop: 16,
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 4, flexWrap: 'wrap' }}>
+        <div>
+          <h2 style={{ fontSize: 15, fontWeight: 700, color: '#111827', margin: 0 }}>Weekly Digest</h2>
+          <p style={{ fontSize: 12, color: '#6b7280', margin: '4px 0 0' }}>
+            AI summary of this week's meal log for a quick pre-session scan
+          </p>
+        </div>
+        <button
+          onClick={load}
+          disabled={loading}
+          style={{
+            padding: '7px 16px', borderRadius: 10, border: 'none',
+            background: loading ? 'rgba(232,115,90,0.4)' : 'linear-gradient(135deg, #E8735A 0%, #C85A8A 100%)',
+            color: 'white', fontSize: 13, fontWeight: 600,
+            fontFamily: "'Lato', sans-serif", flexShrink: 0,
+            cursor: loading ? 'not-allowed' : 'pointer',
+          }}
+        >
+          {loading ? 'Generating…' : digest ? 'Regenerate' : 'Generate digest'}
+        </button>
+      </div>
+
+      {error && (
+        <p style={{ fontSize: 13, color: '#E8735A', marginTop: 12 }}>
+          Could not generate the digest right now. Try again in a moment.
+        </p>
+      )}
+
+      {!loading && !error && digest === null && (
+        <p style={{ fontSize: 12, color: '#9ca3af', fontStyle: 'italic', marginTop: 12 }}>
+          No digest yet — click "Generate digest" to summarize this patient's week.
+        </p>
+      )}
+
+      {digest && digest.length === 0 && (
+        <p style={{ fontSize: 12, color: '#9ca3af', fontStyle: 'italic', marginTop: 12 }}>
+          No meals logged this week yet.
+        </p>
+      )}
+
+      {digest && digest.length > 0 && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 14 }}>
+          {digest.map((item, i) => {
+            const s = DIGEST_STYLES[item.type] || DIGEST_STYLES.pattern
+            return (
+              <div key={i} style={{
+                display: 'flex', alignItems: 'flex-start', gap: 12,
+                background: s.bg, borderRadius: 12, border: `1px solid ${s.border}`,
+                padding: '12px 14px',
+              }}>
+                <span style={{ fontSize: 18, flexShrink: 0, lineHeight: 1.3 }}>{s.icon}</span>
+                <span style={{ fontSize: 13, color: '#374151', lineHeight: 1.6 }}>{item.text}</span>
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
 
 function ClinicianSupplementEditor({ prescribedSupplements, onSave }) {
   const [input, setInput] = useState('')
@@ -243,6 +344,12 @@ export default function ClinicianView() {
             mealStatuses={parentMealStatuses}
           />
           <WeeklyInsights allMealItems={parentMealItems} mealStatuses={parentMealStatuses} />
+          <ClinicianDigestSection
+            key={viewingPatientUid}
+            allMealItems={parentMealItems}
+            mealStatuses={parentMealStatuses}
+            parentNotes={parentNotes}
+          />
           <ParentNotesPanel notes={parentNotes} onMarkRead={handleMarkNoteRead} />
           <WeeklyGoals allMealItems={parentMealItems} />
           <ClinicianSupplementEditor
