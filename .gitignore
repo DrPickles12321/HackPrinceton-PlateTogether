@@ -15,6 +15,7 @@ dist-ssr
 agent/.env
 .wrangler
 .dev.vars
+.firebase
 
 # Editor directories and files
 .vscode/*
