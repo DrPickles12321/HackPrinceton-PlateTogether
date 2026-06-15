@@ -4,16 +4,80 @@ import { generateWeeklyInsights } from '../lib/aiInsights'
 
 const MEAL_LABELS = { breakfast: 'Breakfast', lunch: 'Lunch', snack: 'Snack', dinner: 'Dinner' }
 
-function getThisWeekIsoDates() {
+function getWeekIsoDates(offset = 0) {
   const today = new Date()
   const dow = today.getDay()
   const monday = new Date(today)
-  monday.setDate(today.getDate() - (dow === 0 ? 6 : dow - 1))
+  monday.setDate(today.getDate() - (dow === 0 ? 6 : dow - 1) + offset * 7)
   return Array.from({ length: 7 }, (_, i) => {
     const d = new Date(monday)
     d.setDate(monday.getDate() + i)
     return d.toISOString().slice(0, 10)
   })
+}
+
+function computeWeekStats(weekStatuses, allMealItems, weekDates) {
+  const total     = weekStatuses.length
+  const okay      = weekStatuses.filter(s => s.status === 'okay').length
+  const difficult = weekStatuses.filter(s => s.status === 'difficult').length
+  const refused   = weekStatuses.filter(s => s.status === 'refused').length
+
+  const challengeAttempts = weekStatuses.filter(({ date, mealType }) => {
+    const items = (allMealItems[date] || {})[mealType] || []
+    return items.some(f => f.category === 'challenge')
+  }).length
+  const challengeMeals = weekDates.flatMap(date =>
+    Object.entries(allMealItems[date] || {}).filter(([, items]) =>
+      items.some(f => f.category === 'challenge')
+    )
+  ).length
+  const ringPct = challengeMeals > 0 ? Math.round((challengeAttempts / challengeMeals) * 100) : 0
+
+  const hardByMeal = { breakfast: 0, lunch: 0, snack: 0, dinner: 0 }
+  const totalByMeal = { breakfast: 0, lunch: 0, snack: 0, dinner: 0 }
+  for (const { mealType, status } of weekStatuses) {
+    totalByMeal[mealType] = (totalByMeal[mealType] || 0) + 1
+    if (status === 'difficult' || status === 'refused') {
+      hardByMeal[mealType] = (hardByMeal[mealType] || 0) + 1
+    }
+  }
+  let hardestMeal = 'Dinner', hardestPct = 0
+  for (const [mt, count] of Object.entries(hardByMeal)) {
+    const t = totalByMeal[mt] || 0
+    const pct = t > 0 ? Math.round((count / t) * 100) : 0
+    if (pct > hardestPct) { hardestPct = pct; hardestMeal = mt }
+  }
+
+  const successRate = total > 0 ? Math.round((okay / total) * 100) : 0
+  return { total, okay, difficult, refused, ringPct, challengeAttempts, challengeSlots: challengeMeals, hardestMeal, hardestPct, successRate }
+}
+
+function ProgressStat({ label, current, previous, unit = '' }) {
+  const delta = current - previous
+  const arrow = delta === 0 ? '→' : delta > 0 ? '↑' : '↓'
+  const color = delta === 0 ? 'var(--text-light)' : delta > 0 ? 'var(--mint)' : 'var(--coral)'
+
+  return (
+    <div style={{
+      background: 'var(--surface-warm)', borderRadius: 14, border: '1px solid var(--border)',
+      padding: '14px 16px',
+    }}>
+      <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-light)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 6 }}>
+        {label}
+      </div>
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+        <span className="font-lora" style={{ fontSize: 26, fontWeight: 400, color: 'var(--text-dark)' }}>
+          {current}{unit}
+        </span>
+        <span style={{ fontSize: 12, fontWeight: 700, color }}>
+          {arrow} {Math.abs(delta)}{unit}
+        </span>
+      </div>
+      <div style={{ fontSize: 11, color: 'var(--text-light)', marginTop: 4 }}>
+        vs {previous}{unit} last week
+      </div>
+    </div>
+  )
 }
 
 
@@ -30,7 +94,7 @@ function AIInsightsSection({ weekStatuses, allMealItems = {} }) {
 
   function load() {
     const allStored = allMealItems
-    const weekDates = new Set(getThisWeekIsoDates())
+    const weekDates = new Set(getWeekIsoDates(0))
     const thisWeekItems = Object.fromEntries(
       Object.entries(allStored).filter(([date]) => weekDates.has(date))
     )
@@ -108,50 +172,32 @@ function AIInsightsSection({ weekStatuses, allMealItems = {} }) {
 export default function StatsView() {
   const { mealStatuses = {}, allMealItems = {} } = useOutletContext()
 
+  const thisWeekDates = useMemo(() => getWeekIsoDates(0), [])
+  const lastWeekDates = useMemo(() => getWeekIsoDates(-1), [])
+
   const thisWeekStatuses = useMemo(() => {
-    const weekDates = getThisWeekIsoDates()
-    return weekDates.flatMap(date =>
+    return thisWeekDates.flatMap(date =>
       Object.entries(mealStatuses[date] || {}).map(([mealType, status]) => ({ date, mealType, status }))
     )
-  }, [mealStatuses])
+  }, [mealStatuses, thisWeekDates])
 
-  const stats = useMemo(() => {
-    const total     = thisWeekStatuses.length
-    const okay      = thisWeekStatuses.filter(s => s.status === 'okay').length
-    const difficult = thisWeekStatuses.filter(s => s.status === 'difficult').length
-    const refused   = thisWeekStatuses.filter(s => s.status === 'refused').length
+  const lastWeekStatuses = useMemo(() => {
+    return lastWeekDates.flatMap(date =>
+      Object.entries(mealStatuses[date] || {}).map(([mealType, status]) => ({ date, mealType, status }))
+    )
+  }, [mealStatuses, lastWeekDates])
 
-    const allItems = allMealItems
-    const weekDates = getThisWeekIsoDates()
-    const challengeAttempts = thisWeekStatuses.filter(({ date, mealType }) => {
-      const items = (allItems[date] || {})[mealType] || []
-      return items.some(f => f.category === 'challenge')
-    }).length
-    const challengeMeals = weekDates.flatMap(date =>
-      Object.entries(allItems[date] || {}).filter(([, items]) =>
-        items.some(f => f.category === 'challenge')
-      )
-    ).length
-    const ringPct = challengeMeals > 0 ? Math.round((challengeAttempts / challengeMeals) * 100) : 0
+  const stats = useMemo(
+    () => computeWeekStats(thisWeekStatuses, allMealItems, thisWeekDates),
+    [thisWeekStatuses, allMealItems, thisWeekDates]
+  )
 
-    const hardByMeal = { breakfast: 0, lunch: 0, snack: 0, dinner: 0 }
-    const totalByMeal = { breakfast: 0, lunch: 0, snack: 0, dinner: 0 }
-    for (const { mealType, status } of thisWeekStatuses) {
-      totalByMeal[mealType] = (totalByMeal[mealType] || 0) + 1
-      if (status === 'difficult' || status === 'refused') {
-        hardByMeal[mealType] = (hardByMeal[mealType] || 0) + 1
-      }
-    }
-    let hardestMeal = 'Dinner', hardestPct = 0
-    for (const [mt, count] of Object.entries(hardByMeal)) {
-      const t = totalByMeal[mt] || 0
-      const pct = t > 0 ? Math.round((count / t) * 100) : 0
-      if (pct > hardestPct) { hardestPct = pct; hardestMeal = mt }
-    }
+  const lastWeekStats = useMemo(
+    () => computeWeekStats(lastWeekStatuses, allMealItems, lastWeekDates),
+    [lastWeekStatuses, allMealItems, lastWeekDates]
+  )
 
-    const successRate = total > 0 ? Math.round((okay / total) * 100) : 0
-    return { total, okay, difficult, refused, ringPct, challengeAttempts, challengeSlots: challengeMeals, hardestMeal, hardestPct, successRate }
-  }, [thisWeekStatuses, allMealItems])
+  const hasLastWeekData = lastWeekStats.total > 0
 
   const circumference = 2 * Math.PI * 38
 
@@ -322,6 +368,26 @@ export default function StatsView() {
             </div>
           ))}
         </div>
+
+        {/* Weekly Progress */}
+        {hasLastWeekData && (
+          <div style={{
+            background: 'white', borderRadius: 22, border: '1.5px solid var(--border)',
+            padding: '24px 22px', boxShadow: '0 3px 14px rgba(39,23,6,0.06)',
+          }}>
+            <div style={{
+              fontSize: 10, fontWeight: 700, color: 'var(--text-light)',
+              letterSpacing: '0.7px', textTransform: 'uppercase', marginBottom: 16,
+            }}>Weekly Progress</div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
+              <ProgressStat label="Okay Meals" current={stats.successRate} previous={lastWeekStats.successRate} unit="%" />
+              <ProgressStat label="Meals Logged" current={stats.total} previous={lastWeekStats.total} />
+              <ProgressStat label="Difficult" current={stats.difficult} previous={lastWeekStats.difficult} />
+              <ProgressStat label="Challenges Tried" current={stats.ringPct} previous={lastWeekStats.ringPct} unit="%" />
+            </div>
+          </div>
+        )}
 
         <AIInsightsSection weekStatuses={thisWeekStatuses} allMealItems={allMealItems} />
       </div>
