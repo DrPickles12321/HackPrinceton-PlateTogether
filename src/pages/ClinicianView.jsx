@@ -334,7 +334,7 @@ export default function ClinicianView() {
   }
 
   return (
-    <div style={{ maxWidth: 900, margin: '0 auto', padding: '24px 20px 80px' }}>
+    <div style={{ maxWidth: 1280, margin: '0 auto', padding: '24px 16px 80px' }}>
 
       {/* ── Patient control bar ─────────────────────────────────────────── */}
       <div style={{
@@ -434,21 +434,17 @@ export default function ClinicianView() {
       ) : (
         <>
           <RevealSection eyebrow="Week at a glance">
-            <SectionCard>
-              <WeeklyGrid
-                onDayClick={(day, date) => setSelectedDay({ key: day, date })}
-                parentNotes={parentNotes}
-                onMarkNoteRead={markPatientParentNoteReadById}
-                parentMealItems={parentMealItems}
-                mealStatuses={parentMealStatuses}
-              />
-            </SectionCard>
+            <WeeklyGrid
+              onDayClick={(day, date) => setSelectedDay({ key: day, date })}
+              parentNotes={parentNotes}
+              onMarkNoteRead={markPatientParentNoteReadById}
+              parentMealItems={parentMealItems}
+              mealStatuses={parentMealStatuses}
+            />
           </RevealSection>
 
           <RevealSection eyebrow="Progress" delay={1}>
-            <SectionCard>
-              <WeeklyInsights allMealItems={parentMealItems} mealStatuses={parentMealStatuses} />
-            </SectionCard>
+            <WeeklyInsights allMealItems={parentMealItems} mealStatuses={parentMealStatuses} />
           </RevealSection>
 
           <RevealSection eyebrow="Clinical digest">
