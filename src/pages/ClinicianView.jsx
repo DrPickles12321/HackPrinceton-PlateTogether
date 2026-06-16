@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useFirebaseData } from '../contexts/FirebaseDataContext'
 import { generateClinicianDigest } from '../lib/aiInsights'
 import { getWeekIsoDates } from '../lib/insights'
@@ -14,9 +14,8 @@ function ClinicianDigestSection({ allMealItems, mealStatuses, parentNotes }) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
 
-  const weekDates = useMemo(() => new Set(getWeekIsoDates(0)), [])
-
   function load() {
+    const weekDates = new Set(getWeekIsoDates(0))
     const thisWeekItems = Object.fromEntries(
       Object.entries(allMealItems).filter(([date]) => weekDates.has(date))
     )

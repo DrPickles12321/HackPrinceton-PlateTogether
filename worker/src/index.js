@@ -33,12 +33,18 @@ export default {
       return json({ error: 'Missing Authorization header' }, 401)
     }
 
+    if (!env.FIREBASE_PROJECT_ID) {
+      console.error('FIREBASE_PROJECT_ID environment variable is not set')
+      return json({ error: 'Server misconfiguration' }, 500)
+    }
+
     try {
       await jwtVerify(token, JWKS, {
         issuer: `https://securetoken.google.com/${env.FIREBASE_PROJECT_ID}`,
         audience: env.FIREBASE_PROJECT_ID,
       })
-    } catch {
+    } catch (err) {
+      console.error('JWT verification failed:', err.message)
       return json({ error: 'Invalid or expired token' }, 401)
     }
 
@@ -77,6 +83,7 @@ export default {
     }
 
     const data = await res.json()
-    return json({ text: data.content[0]?.text?.trim() || '' })
+    const text = data.content?.[0]?.text
+    return json({ text: typeof text === 'string' ? text.trim() : '' })
   },
 }

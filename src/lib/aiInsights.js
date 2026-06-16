@@ -98,7 +98,7 @@ export async function generateClinicianDigest({ mealItemsByDate, mealStatusesByD
   }).join('\n\n')
 
   const notesText = parentNotes.length
-    ? parentNotes.map(n => `- ${n.date}: ${n.body}`).join('\n')
+    ? parentNotes.filter(n => n?.date && n?.body).map(n => `- ${n.date}: ${n.body}`).join('\n') || '(none this week)'
     : '(none this week)'
 
   const prompt = `You are assisting a clinician on a family-based treatment team supporting a patient in eating disorder recovery. Review this patient's meal log for the week and summarize it for a quick clinical scan before a session.

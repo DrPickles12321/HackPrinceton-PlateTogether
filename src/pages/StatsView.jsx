@@ -30,21 +30,28 @@ function computeWeekStats(weekStatuses, allMealItems, weekDates) {
       hardByMeal[mealType] = (hardByMeal[mealType] || 0) + 1
     }
   }
-  let hardestMeal = 'Dinner', hardestPct = 0
+  let hardestMeal = null, hardestPct = 0
   for (const [mt, count] of Object.entries(hardByMeal)) {
     const t = totalByMeal[mt] || 0
     const pct = t > 0 ? Math.round((count / t) * 100) : 0
-    if (pct > hardestPct) { hardestPct = pct; hardestMeal = mt }
+    if (pct > hardestPct || (pct === hardestPct && hardestMeal === null)) {
+      hardestPct = pct
+      hardestMeal = mt
+    }
+  }
+  if (hardestMeal === null) {
+    hardestMeal = Object.keys(totalByMeal).find(mt => totalByMeal[mt] > 0) || 'Dinner'
   }
 
   const successRate = total > 0 ? Math.round((okay / total) * 100) : 0
   return { total, okay, difficult, refused, ringPct, challengeAttempts, challengeSlots: challengeMeals, hardestMeal, hardestPct, successRate }
 }
 
-function ProgressStat({ label, current, previous, unit = '' }) {
+function ProgressStat({ label, current, previous, unit = '', inverse = false }) {
   const delta = current - previous
   const arrow = delta === 0 ? '→' : delta > 0 ? '↑' : '↓'
-  const color = delta === 0 ? 'var(--text-light)' : delta > 0 ? 'var(--mint)' : 'var(--coral)'
+  const isPositive = inverse ? delta < 0 : delta > 0
+  const color = delta === 0 ? 'var(--text-light)' : isPositive ? 'var(--mint)' : 'var(--coral)'
 
   return (
     <div style={{
@@ -383,7 +390,7 @@ export default function StatsView() {
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
               <ProgressStat label="Okay Meals" current={stats.successRate} previous={lastWeekStats.successRate} unit="%" />
               <ProgressStat label="Meals Logged" current={stats.total} previous={lastWeekStats.total} />
-              <ProgressStat label="Difficult" current={stats.difficult} previous={lastWeekStats.difficult} />
+              <ProgressStat label="Difficult" current={stats.difficult} previous={lastWeekStats.difficult} inverse />
               <ProgressStat label="Challenges Tried" current={stats.ringPct} previous={lastWeekStats.ringPct} unit="%" />
             </div>
           </div>
