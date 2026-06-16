@@ -1,12 +1,51 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useFirebaseData } from '../contexts/FirebaseDataContext'
 import { generateClinicianDigest } from '../lib/aiInsights'
 import { getWeekIsoDates } from '../lib/insights'
+import WeeklyGrid from '../components/WeeklyGrid'
+import WeeklyInsights from '../components/WeeklyInsights'
+import NotesPanel from '../components/NotesPanel'
+import DailyNutritionSummary from '../components/nutrition/DailyNutritionSummary'
+import WeeklyGoals from '../components/WeeklyGoals'
+import NutritionalTargets from '../components/NutritionalTargets'
 
-const DIGEST_STYLES = {
-  pattern:     { bg: '#f3f4f6', border: '#e5e7eb', icon: '📋' },
-  improvement: { bg: '#ecfdf5', border: '#a7f3d0', icon: '🌱' },
-  watch:       { bg: '#fffbeb', border: '#fde68a', icon: '👀' },
+function useReveal(ref) {
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+    const obs = new IntersectionObserver(
+      ([entry]) => { if (entry.isIntersecting) { el.classList.add('clv-visible'); obs.disconnect() } },
+      { threshold: 0.06 }
+    )
+    obs.observe(el)
+    return () => obs.disconnect()
+  }, [ref])
+}
+
+function RevealSection({ children, eyebrow, delay = 0, style = {} }) {
+  const ref = useRef(null)
+  useReveal(ref)
+  return (
+    <section
+      ref={ref}
+      className={`clv-reveal${delay ? ` d${delay}` : ''}`}
+      style={{ marginTop: 32, ...style }}
+    >
+      {eyebrow && <span className="clv-eyebrow">{eyebrow}</span>}
+      {children}
+    </section>
+  )
+}
+
+const DIGEST_ACCENT = {
+  pattern:     'var(--border-mid)',
+  improvement: 'var(--mint)',
+  watch:       'var(--coral)',
+}
+const DIGEST_TYPE_LABEL = {
+  pattern:     'Pattern',
+  improvement: 'Progress',
+  watch:       'Watch',
 }
 
 function ClinicianDigestSection({ allMealItems, mealStatuses, parentNotes }) {
@@ -36,62 +75,55 @@ function ClinicianDigestSection({ allMealItems, mealStatuses, parentNotes }) {
   }
 
   return (
-    <div style={{
-      background: 'white', borderRadius: 16, border: '1.5px solid #e5e7eb',
-      padding: '20px 24px', marginTop: 16,
-    }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 4, flexWrap: 'wrap' }}>
+    <div>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
         <div>
-          <h2 style={{ fontSize: 15, fontWeight: 700, color: '#111827', margin: 0 }}>Weekly Digest</h2>
-          <p style={{ fontSize: 12, color: '#6b7280', margin: '4px 0 0' }}>
-            AI summary of this week's meal log for a quick pre-session scan
+          <p style={{ fontSize: 13, color: 'var(--text-light)', marginTop: 2 }}>
+            AI summary for a quick pre-session scan
           </p>
         </div>
-        <button
-          onClick={load}
-          disabled={loading}
-          style={{
-            padding: '7px 16px', borderRadius: 10, border: 'none',
-            background: loading ? 'rgba(232,115,90,0.4)' : 'linear-gradient(135deg, #E8735A 0%, #C85A8A 100%)',
-            color: 'white', fontSize: 13, fontWeight: 600,
-            fontFamily: "'Lato', sans-serif", flexShrink: 0,
-            cursor: loading ? 'not-allowed' : 'pointer',
-          }}
-        >
+        <button className={`clv-pill-btn${digest ? '' : ' filled'}`} onClick={load} disabled={loading}>
           {loading ? 'Generating…' : digest ? 'Regenerate' : 'Generate digest'}
         </button>
       </div>
 
       {error && (
-        <p style={{ fontSize: 13, color: '#E8735A', marginTop: 12 }}>
-          Could not generate the digest right now. Try again in a moment.
+        <p style={{ fontSize: 13, color: 'var(--coral)', marginTop: 4 }}>
+          Could not generate digest. Try again in a moment.
         </p>
       )}
 
       {!loading && !error && digest === null && (
-        <p style={{ fontSize: 12, color: '#9ca3af', fontStyle: 'italic', marginTop: 12 }}>
-          No digest yet — click "Generate digest" to summarize this patient's week.
+        <p style={{ fontSize: 13, color: 'var(--text-light)', fontStyle: 'italic' }}>
+          Click "Generate digest" to summarize this patient's week.
         </p>
       )}
 
       {digest && digest.length === 0 && (
-        <p style={{ fontSize: 12, color: '#9ca3af', fontStyle: 'italic', marginTop: 12 }}>
+        <p style={{ fontSize: 13, color: 'var(--text-light)', fontStyle: 'italic' }}>
           No meals logged this week yet.
         </p>
       )}
 
       {digest && digest.length > 0 && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 14 }}>
+        <div>
           {digest.map((item, i) => {
-            const s = DIGEST_STYLES[item.type] || DIGEST_STYLES.pattern
+            const accent = DIGEST_ACCENT[item.type] || DIGEST_ACCENT.pattern
+            const typeLabel = DIGEST_TYPE_LABEL[item.type] || item.type
             return (
-              <div key={i} style={{
-                display: 'flex', alignItems: 'flex-start', gap: 12,
-                background: s.bg, borderRadius: 12, border: `1px solid ${s.border}`,
-                padding: '12px 14px',
-              }}>
-                <span style={{ fontSize: 18, flexShrink: 0, lineHeight: 1.3 }}>{s.icon}</span>
-                <span style={{ fontSize: 13, color: '#374151', lineHeight: 1.6 }}>{item.text}</span>
+              <div key={i} className="clv-digest-item">
+                <div className="clv-digest-accent" style={{ background: accent }} />
+                <div style={{ flex: 1 }}>
+                  <span style={{
+                    display: 'inline-block', fontSize: 9, fontWeight: 700,
+                    letterSpacing: '1.2px', textTransform: 'uppercase',
+                    color: accent === 'var(--border-mid)' ? 'var(--text-light)' : accent,
+                    marginBottom: 4,
+                  }}>
+                    {typeLabel}
+                  </span>
+                  <p style={{ fontSize: 13, color: 'var(--text-dark)', lineHeight: 1.65 }}>{item.text}</p>
+                </div>
               </div>
             )
           })}
@@ -119,15 +151,9 @@ function ClinicianSupplementEditor({ prescribedSupplements, onSave }) {
   }
 
   return (
-    <div style={{
-      background: 'white', borderRadius: 16,
-      border: '1.5px solid #e5e7eb', padding: '20px 24px', marginTop: 16,
-    }}>
-      <h2 style={{ fontSize: 15, fontWeight: 700, color: '#111827', marginBottom: 4 }}>
-        Prescribed Supplements
-      </h2>
-      <p style={{ fontSize: 12, color: '#6b7280', marginBottom: 16 }}>
-        These will appear in the patient's daily supplement checklist.
+    <div>
+      <p style={{ fontSize: 13, color: 'var(--text-light)', marginBottom: 16 }}>
+        Supplements appear in the patient's daily checklist.
       </p>
       <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
         <input
@@ -136,45 +162,42 @@ function ClinicianSupplementEditor({ prescribedSupplements, onSave }) {
           onKeyDown={e => e.key === 'Enter' && handleAdd()}
           placeholder="e.g. Calcium + D3"
           style={{
-            flex: 1, padding: '8px 12px', borderRadius: 10,
-            border: '1.5px solid #e5e7eb', fontSize: 13,
-            color: '#111827', fontFamily: "'Outfit', sans-serif", outline: 'none',
+            flex: 1, padding: '8px 14px', borderRadius: 999,
+            border: '1.5px solid var(--border)', fontSize: 13,
+            color: 'var(--text-dark)', fontFamily: 'inherit', outline: 'none',
+            background: 'var(--surface)',
           }}
-          onFocus={e => e.target.style.borderColor = '#E8735A'}
-          onBlur={e => e.target.style.borderColor = '#e5e7eb'}
+          onFocus={e => e.target.style.borderColor = 'var(--coral)'}
+          onBlur={e => e.target.style.borderColor = 'var(--border)'}
         />
         <button
           onClick={handleAdd}
           disabled={!input.trim()}
-          style={{
-            padding: '8px 18px', borderRadius: 10, border: 'none',
-            background: input.trim() ? '#E8735A' : 'rgba(232,115,90,0.3)',
-            color: 'white', fontSize: 13, fontWeight: 600,
-            fontFamily: "'Outfit', sans-serif",
-            cursor: input.trim() ? 'pointer' : 'not-allowed',
-          }}
-        >{saved ? 'Added ✓' : 'Add'}</button>
+          className="clv-pill-btn filled"
+        >
+          {saved ? 'Added' : 'Add'}
+        </button>
       </div>
       {prescribedSupplements.length === 0 ? (
-        <p style={{ fontSize: 12, color: '#9ca3af', fontStyle: 'italic' }}>No supplements prescribed yet.</p>
+        <p style={{ fontSize: 13, color: 'var(--text-light)', fontStyle: 'italic' }}>
+          No supplements prescribed yet.
+        </p>
       ) : (
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
           {prescribedSupplements.map(name => (
             <span key={name} style={{
               display: 'inline-flex', alignItems: 'center', gap: 6,
-              background: '#fef3f0', border: '1px solid #f5c4b8',
-              borderRadius: 20, padding: '5px 12px',
-              fontSize: 13, color: '#E8735A', fontWeight: 500,
-              fontFamily: "'Outfit', sans-serif",
+              background: 'var(--coral-light)', borderRadius: 999,
+              padding: '5px 14px', fontSize: 13, color: 'var(--coral)',
+              fontWeight: 500, border: '1px solid var(--coral-mid)',
             }}>
               {name}
               <button
                 onClick={() => handleRemove(name)}
                 style={{
                   background: 'none', border: 'none', cursor: 'pointer',
-                  color: '#E8735A', fontSize: 16, lineHeight: 1,
-                  padding: 0, display: 'flex', alignItems: 'center',
-                  fontFamily: 'inherit', opacity: 0.6,
+                  color: 'var(--coral)', fontSize: 15, lineHeight: 1,
+                  padding: 0, display: 'flex', alignItems: 'center', opacity: 0.6,
                 }}
               >×</button>
             </span>
@@ -184,12 +207,93 @@ function ClinicianSupplementEditor({ prescribedSupplements, onSave }) {
     </div>
   )
 }
-import WeeklyGrid from '../components/WeeklyGrid'
-import WeeklyInsights from '../components/WeeklyInsights'
-import NotesPanel from '../components/NotesPanel'
-import DailyNutritionSummary from '../components/nutrition/DailyNutritionSummary'
-import WeeklyGoals from '../components/WeeklyGoals'
-import NutritionalTargets from '../components/NutritionalTargets'
+
+function ParentNotesPanel({ notes = [], onMarkRead }) {
+  const sorted = [...notes].sort((a, b) => (b.date || '').localeCompare(a.date || ''))
+  const unreadCount = sorted.filter(n => !n.read_at).length
+
+  return (
+    <div>
+      {unreadCount > 0 && (
+        <span style={{
+          display: 'inline-block', marginBottom: 12,
+          fontSize: 10, fontWeight: 700, letterSpacing: '1px',
+          textTransform: 'uppercase', color: 'var(--peach)',
+          background: 'var(--peach-light)', borderRadius: 999,
+          padding: '3px 10px', border: '1px solid var(--peach-mid)',
+        }}>
+          {unreadCount} unread
+        </span>
+      )}
+
+      {sorted.length === 0 ? (
+        <p style={{ fontSize: 13, color: 'var(--text-light)', fontStyle: 'italic' }}>
+          No notes from the parent yet.
+        </p>
+      ) : (
+        <div style={{ borderTop: '1px solid var(--border)' }}>
+          {sorted.map(note => {
+            const isUnread = !note.read_at
+            return (
+              <div key={note.date} className="clv-timeline-item">
+                <div className="clv-timeline-date">
+                  {new Date(note.date + 'T12:00:00').toLocaleDateString('en-US', {
+                    weekday: 'short', month: 'short', day: 'numeric',
+                  })}
+                </div>
+                <div>
+                  {isUnread && (
+                    <span style={{
+                      display: 'inline-block', fontSize: 9, fontWeight: 700,
+                      letterSpacing: '1px', textTransform: 'uppercase',
+                      color: 'var(--peach)', marginBottom: 4,
+                    }}>New</span>
+                  )}
+                  <p style={{
+                    fontSize: 13, color: 'var(--text-dark)', lineHeight: 1.6,
+                    fontStyle: isUnread ? 'normal' : 'normal',
+                    fontWeight: isUnread ? 500 : 400,
+                  }}>
+                    {note.body}
+                  </p>
+                </div>
+                <div style={{ paddingTop: 2 }}>
+                  {isUnread ? (
+                    <button
+                      onClick={() => onMarkRead?.(note.id)}
+                      className="clv-pill-btn"
+                      style={{ fontSize: 11, padding: '4px 12px' }}
+                    >
+                      Mark read
+                    </button>
+                  ) : (
+                    <span style={{ fontSize: 11, color: 'var(--mint)', fontWeight: 600 }}>
+                      Read
+                    </span>
+                  )}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function SectionCard({ children, style = {} }) {
+  return (
+    <div style={{
+      background: 'var(--surface)',
+      borderRadius: 16,
+      border: '1px solid var(--border)',
+      padding: '24px 28px',
+      ...style,
+    }}>
+      {children}
+    </div>
+  )
+}
 
 export default function ClinicianView() {
   const {
@@ -197,7 +301,6 @@ export default function ClinicianView() {
     allMealItems: parentMealItems,
     mealStatuses: parentMealStatuses,
     clinicianNotesRead,
-    markParentNoteReadById,
     markPatientParentNoteReadById,
     patients,
     viewingPatientUid,
@@ -209,9 +312,12 @@ export default function ClinicianView() {
     writeClinicianNote,
   } = useFirebaseData()
 
-  const [addCodeInput, setAddCodeInput]   = useState('')
-  const [addCodeError, setAddCodeError]   = useState('')
+  const [addCodeInput, setAddCodeInput] = useState('')
+  const [addCodeError, setAddCodeError]  = useState('')
   const [addCodeLoading, setAddCodeLoading] = useState(false)
+  const [selectedDay, setSelectedDay] = useState(null)
+
+  useEffect(() => { document.title = 'Dashboard · Plate Together' }, [])
 
   async function handleAddPatient(e) {
     e.preventDefault()
@@ -219,21 +325,8 @@ export default function ClinicianView() {
     setAddCodeLoading(true)
     const result = await addPatientByCode(addCodeInput)
     setAddCodeLoading(false)
-    if (result.error) {
-      setAddCodeError(result.error)
-    } else {
-      setAddCodeInput('')
-    }
-  }
-
-  const [selectedDay, setSelectedDay] = useState(null)
-
-  useEffect(() => {
-    document.title = 'Dashboard · Plate Together'
-  }, [])
-
-  function handleMarkNoteRead(noteId) {
-    markPatientParentNoteReadById(noteId)
+    if (result.error) { setAddCodeError(result.error) }
+    else { setAddCodeInput('') }
   }
 
   function handleSaveNote({ body, existingNoteId }) {
@@ -241,26 +334,27 @@ export default function ClinicianView() {
   }
 
   return (
-    <div className="max-w-7xl mx-auto p-4 md:p-6 space-y-6">
+    <div style={{ maxWidth: 900, margin: '0 auto', padding: '24px 20px 80px' }}>
 
-      {/* ── Patient selector ─────────────────────────────────────────────── */}
+      {/* ── Patient control bar ─────────────────────────────────────────── */}
       <div style={{
-        background: 'white', borderRadius: 16, border: '1.5px solid #e5e7eb',
-        padding: '16px 20px', display: 'flex', alignItems: 'flex-start',
-        gap: 20, flexWrap: 'wrap',
+        display: 'flex', alignItems: 'flex-end', gap: 24,
+        flexWrap: 'wrap', marginBottom: 40,
+        paddingBottom: 24, borderBottom: '1px solid var(--border)',
       }}>
-        {/* Dropdown */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 4, minWidth: 220 }}>
-          <label style={{ fontSize: 11, fontWeight: 600, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+          <label style={{ fontSize: 10, fontWeight: 600, letterSpacing: '1.5px', textTransform: 'uppercase', color: 'var(--text-light)' }}>
             Viewing patient
           </label>
           <select
             value={viewingPatientUid || ''}
             onChange={e => setViewingPatientUid(e.target.value || null)}
             style={{
-              padding: '7px 12px', borderRadius: 10, border: '1.5px solid #e5e7eb',
-              fontSize: 13, color: '#111827', background: 'white',
-              fontFamily: "'Lato', sans-serif", cursor: 'pointer', outline: 'none',
+              padding: '8px 14px', borderRadius: 999,
+              border: '1.5px solid var(--border)', fontSize: 13,
+              color: 'var(--text-dark)', background: 'var(--surface)',
+              fontFamily: 'inherit', cursor: 'pointer', outline: 'none',
+              minWidth: 200,
             }}
           >
             <option value="">— Select a patient —</option>
@@ -270,13 +364,11 @@ export default function ClinicianView() {
           </select>
         </div>
 
-        {/* Divider */}
-        <div style={{ width: 1, background: '#e5e7eb', alignSelf: 'stretch', margin: '0 4px' }} />
+        <div style={{ width: 1, background: 'var(--border)', height: 40, alignSelf: 'flex-end', marginBottom: 2 }} />
 
-        {/* Add Patient */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-          <label style={{ fontSize: 11, fontWeight: 600, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-            Add patient by family code
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+          <label style={{ fontSize: 10, fontWeight: 600, letterSpacing: '1.5px', textTransform: 'uppercase', color: 'var(--text-light)' }}>
+            Add by family code
           </label>
           <form onSubmit={handleAddPatient} style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
             <input
@@ -285,48 +377,54 @@ export default function ClinicianView() {
               placeholder="ABC123"
               maxLength={6}
               style={{
-                padding: '7px 12px', borderRadius: 10, border: '1.5px solid #e5e7eb',
-                fontSize: 13, color: '#111827', fontFamily: "'Lato', sans-serif",
-                outline: 'none', width: 110, letterSpacing: '1px', fontWeight: 600,
+                padding: '8px 14px', borderRadius: 999,
+                border: '1.5px solid var(--border)', fontSize: 13,
+                color: 'var(--text-dark)', fontFamily: 'inherit',
+                outline: 'none', width: 100, letterSpacing: '2px', fontWeight: 600,
+                background: 'var(--surface)',
               }}
-              onFocus={e => e.target.style.borderColor = '#E8735A'}
-              onBlur={e => e.target.style.borderColor = '#e5e7eb'}
+              onFocus={e => e.target.style.borderColor = 'var(--coral)'}
+              onBlur={e => e.target.style.borderColor = 'var(--border)'}
             />
             <button
               type="submit"
               disabled={addCodeLoading || addCodeInput.length < 6}
-              style={{
-                padding: '7px 16px', borderRadius: 10, border: 'none',
-                background: addCodeLoading || addCodeInput.length < 6
-                  ? 'rgba(232,115,90,0.4)'
-                  : 'linear-gradient(135deg, #E8735A 0%, #C85A8A 100%)',
-                color: 'white', fontSize: 13, fontWeight: 600,
-                fontFamily: "'Lato', sans-serif",
-                cursor: addCodeLoading || addCodeInput.length < 6 ? 'not-allowed' : 'pointer',
-              }}
+              className="clv-pill-btn filled"
             >
               {addCodeLoading ? '…' : 'Add'}
             </button>
           </form>
           {addCodeError && (
-            <span style={{ fontSize: 12, color: '#E8735A', marginTop: 2 }}>{addCodeError}</span>
+            <span style={{ fontSize: 12, color: 'var(--coral)', marginTop: 2 }}>{addCodeError}</span>
           )}
         </div>
       </div>
 
-      <header>
-        <h1 className="text-2xl font-bold text-gray-900">Clinician Dashboard</h1>
-        <p className="text-sm text-gray-600">Weekly meal plan and logs for this family</p>
-      </header>
+      {/* ── Page title ──────────────────────────────────────────────────── */}
+      <div style={{ marginBottom: 8 }}>
+        <h1 className="font-lora" style={{ fontSize: 32, fontWeight: 400, color: 'var(--text-dark)', letterSpacing: '-0.3px' }}>
+          Clinician Dashboard
+        </h1>
+        <p style={{ fontSize: 14, color: 'var(--text-light)', marginTop: 6 }}>
+          Weekly meal plan and session notes for your patient
+        </p>
+      </div>
 
+      {/* ── No patient selected ─────────────────────────────────────────── */}
       {!viewingPatientUid ? (
         <div style={{
-          textAlign: 'center', padding: '64px 24px',
-          color: '#9ca3af', fontSize: 14,
-          fontFamily: "'Outfit', sans-serif",
+          textAlign: 'center', padding: '80px 24px',
+          color: 'var(--text-light)', fontSize: 14,
         }}>
-          <div style={{ fontSize: 40, marginBottom: 16 }}>🩺</div>
-          <p style={{ fontWeight: 600, color: '#6b7280', fontSize: 16, marginBottom: 8 }}>
+          <div style={{
+            width: 48, height: 48, borderRadius: '50%',
+            background: 'var(--surface-warm)', border: '1px solid var(--border)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            margin: '0 auto 20px', fontSize: 20,
+          }}>
+            ⊕
+          </div>
+          <p style={{ fontWeight: 500, color: 'var(--text-mid)', fontSize: 15, marginBottom: 6 }}>
             No patient selected
           </p>
           <p style={{ fontSize: 13 }}>
@@ -335,33 +433,73 @@ export default function ClinicianView() {
         </div>
       ) : (
         <>
-          <WeeklyGrid
-            onDayClick={(day, date) => setSelectedDay({ key: day, date })}
-            parentNotes={parentNotes}
-            onMarkNoteRead={handleMarkNoteRead}
-            parentMealItems={parentMealItems}
-            mealStatuses={parentMealStatuses}
-          />
-          <WeeklyInsights allMealItems={parentMealItems} mealStatuses={parentMealStatuses} />
-          <ClinicianDigestSection
-            key={viewingPatientUid}
-            allMealItems={parentMealItems}
-            mealStatuses={parentMealStatuses}
-            parentNotes={parentNotes}
-          />
-          <ParentNotesPanel notes={parentNotes} onMarkRead={handleMarkNoteRead} />
-          <WeeklyGoals allMealItems={parentMealItems} />
-          <ClinicianSupplementEditor
-            prescribedSupplements={prescribedSupplements}
-            onSave={savePrescribedSupplements}
-          />
-          <NutritionalTargets />
-          <NotesPanel
-            notes={clinicianNotes}
-            mode="clinician"
-            onSave={handleSaveNote}
-            notesReadByParent={clinicianNotesRead}
-          />
+          <RevealSection eyebrow="Week at a glance">
+            <SectionCard>
+              <WeeklyGrid
+                onDayClick={(day, date) => setSelectedDay({ key: day, date })}
+                parentNotes={parentNotes}
+                onMarkNoteRead={markPatientParentNoteReadById}
+                parentMealItems={parentMealItems}
+                mealStatuses={parentMealStatuses}
+              />
+            </SectionCard>
+          </RevealSection>
+
+          <RevealSection eyebrow="Progress" delay={1}>
+            <SectionCard>
+              <WeeklyInsights allMealItems={parentMealItems} mealStatuses={parentMealStatuses} />
+            </SectionCard>
+          </RevealSection>
+
+          <RevealSection eyebrow="Clinical digest">
+            <SectionCard>
+              <ClinicianDigestSection
+                key={viewingPatientUid}
+                allMealItems={parentMealItems}
+                mealStatuses={parentMealStatuses}
+                parentNotes={parentNotes}
+              />
+            </SectionCard>
+          </RevealSection>
+
+          <RevealSection eyebrow="Parent notes" delay={1}>
+            <SectionCard>
+              <ParentNotesPanel notes={parentNotes} onMarkRead={markPatientParentNoteReadById} />
+            </SectionCard>
+          </RevealSection>
+
+          <RevealSection eyebrow="Weekly goals">
+            <SectionCard>
+              <WeeklyGoals allMealItems={parentMealItems} />
+            </SectionCard>
+          </RevealSection>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginTop: 32 }}>
+            <RevealSection eyebrow="Supplements" style={{ marginTop: 0 }}>
+              <SectionCard style={{ height: '100%' }}>
+                <ClinicianSupplementEditor
+                  prescribedSupplements={prescribedSupplements}
+                  onSave={savePrescribedSupplements}
+                />
+              </SectionCard>
+            </RevealSection>
+            <RevealSection eyebrow="Nutritional targets" delay={1} style={{ marginTop: 0 }}>
+              <SectionCard style={{ height: '100%' }}>
+                <NutritionalTargets />
+              </SectionCard>
+            </RevealSection>
+          </div>
+
+          <RevealSection eyebrow="Session notes">
+            <SectionCard>
+              <NotesPanel
+                notes={clinicianNotes}
+                mode="clinician"
+                onSave={handleSaveNote}
+                notesReadByParent={clinicianNotesRead}
+              />
+            </SectionCard>
+          </RevealSection>
         </>
       )}
 
@@ -371,72 +509,6 @@ export default function ClinicianView() {
           loggedMealItems={parentMealItems[selectedDay.date] || {}}
           onClose={() => setSelectedDay(null)}
         />
-      )}
-    </div>
-  )
-}
-
-function ParentNotesPanel({ notes = [], onMarkRead }) {
-  const sorted = [...notes].sort((a, b) => (b.date || '').localeCompare(a.date || ''))
-  const unreadCount = sorted.filter(n => !n.read_at).length
-
-  return (
-    <div style={{
-      background: 'white', borderRadius: 16, border: '1.5px solid #e5e7eb',
-      padding: '20px 24px', marginTop: 16,
-    }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
-        <h2 style={{ fontSize: 15, fontWeight: 700, color: '#111827', margin: 0 }}>Parent Notes</h2>
-        {unreadCount > 0 && (
-          <span style={{
-            background: '#fef3c7', color: '#d97706', fontSize: 11, fontWeight: 700,
-            borderRadius: 20, padding: '2px 8px', border: '1px solid #fde68a',
-          }}>
-            {unreadCount} unread
-          </span>
-        )}
-      </div>
-
-      {sorted.length === 0 ? (
-        <p style={{ fontSize: 13, color: '#9ca3af', fontStyle: 'italic' }}>No notes from the parent yet.</p>
-      ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          {sorted.map(note => {
-            const isUnread = !note.read_at
-            return (
-              <div key={note.date} style={{
-                background: isUnread ? '#fffbeb' : '#f9fafb',
-                border: `1.5px solid ${isUnread ? '#fde68a' : '#e5e7eb'}`,
-                borderRadius: 12, padding: '12px 14px',
-                display: 'flex', gap: 12, alignItems: 'flex-start',
-              }}>
-                <div style={{ flex: 1 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                    <span style={{ fontSize: 11, fontWeight: 600, color: '#6b7280' }}>
-                      {new Date(note.date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
-                    </span>
-                    {isUnread && (
-                      <span style={{ fontSize: 9, fontWeight: 700, color: '#d97706', textTransform: 'uppercase', letterSpacing: '0.5px' }}>● New</span>
-                    )}
-                  </div>
-                  <p style={{ margin: 0, fontSize: 13, color: '#374151', lineHeight: 1.5 }}>{note.body}</p>
-                </div>
-                {isUnread ? (
-                  <button
-                    onClick={() => onMarkRead?.(note.id)}
-                    style={{
-                      flexShrink: 0, fontSize: 11, fontWeight: 600, color: '#d97706',
-                      background: 'none', border: '1px solid #fde68a', borderRadius: 8,
-                      padding: '4px 10px', cursor: 'pointer', fontFamily: "'Lato', sans-serif",
-                    }}
-                  >Mark read</button>
-                ) : (
-                  <span style={{ fontSize: 10, color: '#10b981', fontWeight: 600, flexShrink: 0 }}>✓ Read</span>
-                )}
-              </div>
-            )
-          })}
-        </div>
       )}
     </div>
   )

@@ -85,3 +85,79 @@ p { margin: 0; }
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
 }
+
+/* ── Clinician view scroll-reveal ──────────────────────────────────── */
+.clv-reveal {
+  opacity: 0;
+  transform: translateY(28px);
+  transition: opacity 0.6s cubic-bezier(0.16, 1, 0.3, 1),
+              transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.clv-reveal.clv-visible { opacity: 1; transform: none; }
+.clv-reveal.d1 { transition-delay: 0.08s; }
+.clv-reveal.d2 { transition-delay: 0.16s; }
+.clv-reveal.d3 { transition-delay: 0.24s; }
+
+.clv-eyebrow {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 1.8px;
+  text-transform: uppercase;
+  color: var(--text-light);
+  display: block;
+  margin-bottom: 12px;
+}
+
+.clv-pill-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 18px;
+  border-radius: 999px;
+  border: 1.5px solid var(--coral);
+  background: transparent;
+  color: var(--coral);
+  font-size: 13px;
+  font-weight: 500;
+  font-family: 'Outfit', sans-serif;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  flex-shrink: 0;
+}
+.clv-pill-btn:hover { background: var(--coral); color: white; }
+.clv-pill-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.clv-pill-btn.filled { background: var(--coral); color: white; }
+.clv-pill-btn.filled:hover { background: #9e4128; border-color: #9e4128; }
+
+.clv-digest-item {
+  display: flex;
+  gap: 14px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+}
+.clv-digest-item:last-child { border-bottom: none; }
+.clv-digest-accent {
+  width: 3px;
+  border-radius: 3px;
+  flex-shrink: 0;
+  align-self: stretch;
+  min-height: 16px;
+}
+
+.clv-timeline-item {
+  display: grid;
+  grid-template-columns: 72px 1fr auto;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border);
+  align-items: start;
+}
+.clv-timeline-item:last-child { border-bottom: none; }
+.clv-timeline-date {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  color: var(--text-light);
+  text-transform: uppercase;
+  padding-top: 2px;
+}
