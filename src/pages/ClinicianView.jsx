@@ -334,101 +334,100 @@ export default function ClinicianView() {
   }
 
   return (
-    <div style={{ maxWidth: 1280, margin: '0 auto', padding: '24px 16px 80px' }}>
+    <div style={{ maxWidth: 1280, margin: '0 auto', padding: '52px 48px 80px' }}>
 
-      {/* ── Patient control bar ─────────────────────────────────────────── */}
+      {/* ── Page header ─────────────────────────────────────────────────── */}
       <div style={{
-        display: 'flex', alignItems: 'flex-end', gap: 24,
-        flexWrap: 'wrap', marginBottom: 40,
-        paddingBottom: 24, borderBottom: '1px solid var(--border)',
+        display: 'flex',
+        alignItems: 'flex-start',
+        justifyContent: 'space-between',
+        gap: 40,
+        flexWrap: 'wrap',
+        paddingBottom: 44,
+        borderBottom: '1px solid var(--border)',
+        marginBottom: 52,
       }}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-          <label style={{ fontSize: 10, fontWeight: 600, letterSpacing: '1.5px', textTransform: 'uppercase', color: 'var(--text-light)' }}>
-            Viewing patient
-          </label>
-          <select
-            value={viewingPatientUid || ''}
-            onChange={e => setViewingPatientUid(e.target.value || null)}
-            style={{
-              padding: '8px 14px', borderRadius: 999,
-              border: '1.5px solid var(--border)', fontSize: 13,
-              color: 'var(--text-dark)', background: 'var(--surface)',
-              fontFamily: 'inherit', cursor: 'pointer', outline: 'none',
-              minWidth: 200,
-            }}
-          >
-            <option value="">— Select a patient —</option>
-            {patients.map(p => (
-              <option key={p.uid} value={p.uid}>{p.email}</option>
-            ))}
-          </select>
+        {/* Title column */}
+        <div>
+          <span className="clv-eyebrow">Plate Together</span>
+          <h1 className="font-lora" style={{
+            fontSize: 42, fontWeight: 400, color: 'var(--text-dark)',
+            letterSpacing: '-0.6px', lineHeight: 1.1, marginBottom: 10,
+          }}>
+            Clinician Dashboard
+          </h1>
+          <p style={{ fontSize: 14, color: 'var(--text-light)', lineHeight: 1.5 }}>
+            Weekly meal review and session planning
+          </p>
         </div>
 
-        <div style={{ width: 1, background: 'var(--border)', height: 40, alignSelf: 'flex-end', marginBottom: 2 }} />
-
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-          <label style={{ fontSize: 10, fontWeight: 600, letterSpacing: '1.5px', textTransform: 'uppercase', color: 'var(--text-light)' }}>
-            Add by family code
-          </label>
-          <form onSubmit={handleAddPatient} style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-            <input
-              value={addCodeInput}
-              onChange={e => { setAddCodeInput(e.target.value.toUpperCase()); setAddCodeError('') }}
-              placeholder="ABC123"
-              maxLength={6}
+        {/* Controls column */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16, alignItems: 'flex-end' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'flex-end' }}>
+            <label style={{ fontSize: 10, fontWeight: 600, letterSpacing: '1.5px', textTransform: 'uppercase', color: 'var(--text-light)' }}>
+              Viewing patient
+            </label>
+            <select
+              value={viewingPatientUid || ''}
+              onChange={e => setViewingPatientUid(e.target.value || null)}
               style={{
-                padding: '8px 14px', borderRadius: 999,
+                padding: '9px 36px 9px 16px', borderRadius: 999,
                 border: '1.5px solid var(--border)', fontSize: 13,
-                color: 'var(--text-dark)', fontFamily: 'inherit',
-                outline: 'none', width: 100, letterSpacing: '2px', fontWeight: 600,
-                background: 'var(--surface)',
+                color: 'var(--text-dark)', background: 'var(--surface)',
+                fontFamily: 'inherit', cursor: 'pointer', outline: 'none',
+                minWidth: 230, appearance: 'none',
+                backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' fill='none'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23A88C78' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")`,
+                backgroundRepeat: 'no-repeat',
+                backgroundPosition: 'right 14px center',
               }}
-              onFocus={e => e.target.style.borderColor = 'var(--coral)'}
-              onBlur={e => e.target.style.borderColor = 'var(--border)'}
-            />
-            <button
-              type="submit"
-              disabled={addCodeLoading || addCodeInput.length < 6}
-              className="clv-pill-btn filled"
             >
-              {addCodeLoading ? '…' : 'Add'}
-            </button>
-          </form>
-          {addCodeError && (
-            <span style={{ fontSize: 12, color: 'var(--coral)', marginTop: 2 }}>{addCodeError}</span>
-          )}
-        </div>
-      </div>
+              <option value="">— Select a patient —</option>
+              {patients.map(p => (
+                <option key={p.uid} value={p.uid}>{p.email}</option>
+              ))}
+            </select>
+          </div>
 
-      {/* ── Page title ──────────────────────────────────────────────────── */}
-      <div style={{ marginBottom: 8 }}>
-        <h1 className="font-lora" style={{ fontSize: 32, fontWeight: 400, color: 'var(--text-dark)', letterSpacing: '-0.3px' }}>
-          Clinician Dashboard
-        </h1>
-        <p style={{ fontSize: 14, color: 'var(--text-light)', marginTop: 6 }}>
-          Weekly meal plan and session notes for your patient
-        </p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'flex-end' }}>
+            <label style={{ fontSize: 10, fontWeight: 600, letterSpacing: '1.5px', textTransform: 'uppercase', color: 'var(--text-light)' }}>
+              Add by family code
+            </label>
+            <form onSubmit={handleAddPatient} style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <input
+                value={addCodeInput}
+                onChange={e => { setAddCodeInput(e.target.value.toUpperCase()); setAddCodeError('') }}
+                placeholder="ABC123"
+                maxLength={6}
+                style={{
+                  padding: '9px 16px', borderRadius: 999,
+                  border: '1.5px solid var(--border)', fontSize: 13,
+                  color: 'var(--text-dark)', fontFamily: 'inherit',
+                  outline: 'none', width: 100, letterSpacing: '2px', fontWeight: 600,
+                  background: 'var(--surface)',
+                }}
+                onFocus={e => e.target.style.borderColor = 'var(--coral)'}
+                onBlur={e => e.target.style.borderColor = 'var(--border)'}
+              />
+              <button
+                type="submit"
+                disabled={addCodeLoading || addCodeInput.length < 6}
+                className="clv-pill-btn filled"
+              >
+                {addCodeLoading ? '…' : 'Add'}
+              </button>
+            </form>
+            {addCodeError && (
+              <span style={{ fontSize: 12, color: 'var(--coral)', marginTop: 2 }}>{addCodeError}</span>
+            )}
+          </div>
+        </div>
       </div>
 
       {/* ── No patient selected ─────────────────────────────────────────── */}
       {!viewingPatientUid ? (
-        <div style={{
-          textAlign: 'center', padding: '80px 24px',
-          color: 'var(--text-light)', fontSize: 14,
-        }}>
-          <div style={{
-            width: 48, height: 48, borderRadius: '50%',
-            background: 'var(--surface-warm)', border: '1px solid var(--border)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            margin: '0 auto 20px', fontSize: 20,
-          }}>
-            ⊕
-          </div>
-          <p style={{ fontWeight: 500, color: 'var(--text-mid)', fontSize: 15, marginBottom: 6 }}>
-            No patient selected
-          </p>
-          <p style={{ fontSize: 13 }}>
-            Select a patient from the dropdown above to view their data.
+        <div style={{ padding: '16px 0 40px' }}>
+          <p style={{ fontSize: 13, color: 'var(--text-light)', letterSpacing: '0.2px' }}>
+            Select a patient above to view their weekly data.
           </p>
         </div>
       ) : (
