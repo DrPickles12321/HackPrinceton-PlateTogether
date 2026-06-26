@@ -56,13 +56,14 @@ export async function generateWeeklyInsights({ parentMealItemsByDate, mealLogs =
   const okay = typeof mealLogs.okay === 'number' ? mealLogs.okay : (mealLogs.filter ? mealLogs.filter(l => l.status === 'okay').length : 0)
   const difficult = typeof mealLogs.difficult === 'number' ? mealLogs.difficult : (mealLogs.filter ? mealLogs.filter(l => l.status === 'difficult').length : 0)
   const refused = typeof mealLogs.refused === 'number' ? mealLogs.refused : (mealLogs.filter ? mealLogs.filter(l => l.status === 'refused').length : 0)
+  const skipped = typeof mealLogs.skipped === 'number' ? mealLogs.skipped : (mealLogs.filter ? mealLogs.filter(l => l.status === 'skipped').length : 0)
 
   const prompt = `You are a warm, encouraging presence for a family building healthy eating habits together. Look at this week and share 3 brief, uplifting observations — like a supportive friend, not a doctor.
 
 This week (${daysWithFood.length} days):
 ${daySummaries}
 
-Mood check-ins: ${okay} felt okay, ${difficult} felt hard, ${refused} were skipped.
+Mood check-ins: ${okay} felt okay, ${difficult} felt hard, ${refused} were refused, ${skipped} were skipped.
 
 Write 3 short cheerful observations. Rules:
 - Sound like a caring friend, never a doctor or nutritionist
@@ -79,17 +80,19 @@ Write 3 short cheerful observations. Rules:
 
 export async function generateClinicianDigest({ mealItemsByDate, mealStatusesByDate = {}, parentNotes = [] }) {
   const dates = Object.keys(mealItemsByDate).sort()
-  const daysWithFood = dates.filter(d =>
-    Object.values(mealItemsByDate[d]).flat().length > 0
+  const daysWithActivity = dates.filter(d =>
+    Object.values(mealItemsByDate[d]).flat().length > 0 ||
+    Object.values(mealStatusesByDate[d] || {}).some(s => s === 'skipped')
   )
-  if (daysWithFood.length === 0) return null
+  if (daysWithActivity.length === 0) return null
 
-  const daySummaries = daysWithFood.map(date => {
+  const daySummaries = daysWithActivity.map(date => {
     const day = mealItemsByDate[date]
     const statuses = mealStatusesByDate[date] || {}
     const meals = Object.entries(day)
-      .filter(([, items]) => items.length > 0)
+      .filter(([meal, items]) => items.length > 0 || statuses[meal] === 'skipped')
       .map(([meal, items]) => {
+        if (statuses[meal] === 'skipped') return `  ${meal}: [skipped — no food logged]`
         const names = items.map(f => f.name).join(', ')
         const status = statuses[meal] || 'okay'
         return `  ${meal}: ${names} [${status}]`
@@ -103,7 +106,7 @@ export async function generateClinicianDigest({ mealItemsByDate, mealStatusesByD
 
   const prompt = `You are assisting a clinician on a family-based treatment team supporting a patient in eating disorder recovery. Review this patient's meal log for the week and summarize it for a quick clinical scan before a session.
 
-This week's meal log (status in brackets is okay, difficult, or refused):
+This week's meal log (status in brackets is okay, difficult, refused, or skipped):
 ${daySummaries}
 
 Parent notes this week:

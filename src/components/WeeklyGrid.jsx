@@ -19,7 +19,7 @@ const MEAL_TYPES = [
 ]
 
 const SLOT_BASE = 'border rounded-lg p-2 min-h-[80px] transition-colors duration-150 relative'
-const STATUS_DOT = { okay: 'bg-green-500', difficult: 'bg-yellow-500', refused: 'bg-red-500' }
+const STATUS_DOT = { okay: 'bg-green-500', difficult: 'bg-yellow-500', refused: 'bg-red-500', skipped: 'bg-stone-400' }
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
 
 const TODAY_ISO = new Date().toISOString().slice(0, 10)
@@ -49,6 +49,7 @@ function StatusBadge({ log }) {
 
 function ClinicianMealSlot({ items = [], latestLog, isWeekend }) {
   const filled = items.length > 0
+  const isSkipped = !filled && latestLog?.status === 'skipped'
   return (
     <div
       className={`${SLOT_BASE} cursor-default bg-white
@@ -64,6 +65,11 @@ function ClinicianMealSlot({ items = [], latestLog, isWeekend }) {
             </div>
           ))}
           {latestLog && <StatusBadge log={latestLog} />}
+        </div>
+      ) : isSkipped ? (
+        <div className="flex items-center justify-center h-full text-stone-400 text-xs pt-4">
+          Skipped
+          <StatusBadge log={latestLog} />
         </div>
       ) : (
         <div className="flex items-center justify-center h-full text-gray-300 text-xs pt-4">—</div>

@@ -86,6 +86,12 @@ export default function WeeklyInsights({ allMealItems, mealStatuses }) {
         : 'None this week',
       accent: insights.refused > 0 ? 'var(--coral)' : 'var(--border-mid)',
     },
+    {
+      label: 'Skipped',
+      value: insights.skipped,
+      subtext: insights.skipped > 0 ? 'no food logged' : 'None this week',
+      accent: insights.skipped > 0 ? 'var(--text-light)' : 'var(--border-mid)',
+    },
   ]
 
   if (nutritionInsights.avgDailyCalories !== null) {

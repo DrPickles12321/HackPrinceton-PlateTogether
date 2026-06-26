@@ -7,7 +7,7 @@ const FirebaseDataContext = createContext(null)
 
 const DEFAULT_TARGETS = { protein: 75, carbs: 150, fruitsVeggies: 200 }
 
-const DEFAULT_MEAL_TIMES = { breakfast: '08:00', lunch: '13:00', snack: '15:30', dinner: '19:00' }
+export const DEFAULT_MEAL_TIMES = { breakfast: '08:00', lunch: '13:00', snack: '15:30', dinner: '19:00' }
 
 function fbToArr(val) {
   if (!val) return []
@@ -59,7 +59,7 @@ export function FirebaseDataProvider({ children }) {
   const [fbMealData, setFbMealData]                   = useState({})
   const [ownNutritionalTargets, setOwnNutritionalTargets] = useState(DEFAULT_TARGETS)
   const [parentNotesByDate, setParentNotesByDate]     = useState({})
-  const [mealTimes, setMealTimes]                     = useState(DEFAULT_MEAL_TIMES)
+  const [mealTimesByDate, setMealTimesByDate]         = useState({})
   const [supplementLog, setSupplementLog]             = useState({})
   const [clinicianNotesRead, setClinicianNotesRead]   = useState({})
   const [savedClinicianNotes, setSavedClinicianNotes] = useState([])
@@ -83,7 +83,7 @@ export function FirebaseDataProvider({ children }) {
       setFbMealData({})
       setOwnNutritionalTargets(DEFAULT_TARGETS)
       setParentNotesByDate({})
-      setMealTimes(DEFAULT_MEAL_TIMES)
+      setMealTimesByDate({})
       setSupplementLog({})
       setClinicianNotesRead({})
       setSavedClinicianNotes([])
@@ -117,7 +117,7 @@ export function FirebaseDataProvider({ children }) {
     }))
 
     unsubs.push(onValue(ref(db, `${base}/mealTimes`), snap => {
-      setMealTimes(snap.val() || DEFAULT_MEAL_TIMES)
+      setMealTimesByDate(snap.val() || {})
     }))
 
     unsubs.push(onValue(ref(db, `${base}/supplementLog`), snap => {
@@ -271,11 +271,13 @@ export function FirebaseDataProvider({ children }) {
     setPatientParentNotesByDate(prev => ({ ...prev, [date]: note }))
   }
 
-  function updateMealTime(mealType, value) {
+  function updateMealTime(date, mealType, value) {
     if (!uid) return
-    const next = { ...mealTimes, [mealType]: value }
-    set(ref(db, `users/${uid}/mealTimes`), next)
-    setMealTimes(next)
+    set(ref(db, `users/${uid}/mealTimes/${date}/${mealType}`), value)
+    setMealTimesByDate(prev => ({
+      ...prev,
+      [date]: { ...(prev[date] || {}), [mealType]: value },
+    }))
   }
 
   function toggleSupplement(date, nutrient) {
@@ -395,7 +397,7 @@ export function FirebaseDataProvider({ children }) {
       saveParentNote,
       markParentNoteReadById,
       markPatientParentNoteReadById,
-      mealTimes,
+      mealTimesByDate,
       updateMealTime,
       supplementLog,
       toggleSupplement,

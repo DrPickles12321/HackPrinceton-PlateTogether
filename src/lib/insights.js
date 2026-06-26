@@ -26,11 +26,11 @@ export function computeInsightsFromMealItems(allMealItems, mealStatuses = {}) {
   )
 
   if (recentDates.length === 0) {
-    return { totalLogs: 0, okay: 0, difficult: 0, refused: 0, hardestMealType: null, topRefusedCategory: null }
+    return { totalLogs: 0, okay: 0, difficult: 0, refused: 0, skipped: 0, hardestMealType: null, topRefusedCategory: null }
   }
 
   let totalLogs = 0
-  let okay = 0, difficult = 0, refused = 0
+  let okay = 0, difficult = 0, refused = 0, skipped = 0
   const hardCountByMealType = { breakfast: 0, lunch: 0, dinner: 0, snack: 0 }
   const refusedByCategory = { familiar: 0, working_on: 0, challenge: 0 }
 
@@ -39,12 +39,18 @@ export function computeInsightsFromMealItems(allMealItems, mealStatuses = {}) {
     const dayStatuses = mealStatuses[date] || {}
     for (const mealType of MEAL_TYPES) {
       const items = dayMeals[mealType] || []
+      const status = dayStatuses[mealType]
+      if (status === 'skipped') {
+        totalLogs++
+        skipped++
+        continue
+      }
       if (items.length > 0) {
         totalLogs++
-        const status = dayStatuses[mealType] || 'okay'
-        if (status === 'okay') okay++
-        else if (status === 'difficult') { difficult++; hardCountByMealType[mealType]++ }
-        else if (status === 'refused') {
+        const s = status || 'okay'
+        if (s === 'okay') okay++
+        else if (s === 'difficult') { difficult++; hardCountByMealType[mealType]++ }
+        else if (s === 'refused') {
           refused++
           hardCountByMealType[mealType]++
           for (const item of items) {
@@ -57,7 +63,7 @@ export function computeInsightsFromMealItems(allMealItems, mealStatuses = {}) {
   }
 
   if (totalLogs === 0) {
-    return { totalLogs: 0, okay: 0, difficult: 0, refused: 0, hardestMealType: null, topRefusedCategory: null }
+    return { totalLogs: 0, okay: 0, difficult: 0, refused: 0, skipped: 0, hardestMealType: null, topRefusedCategory: null }
   }
 
   let hardestMealType = null
@@ -72,7 +78,7 @@ export function computeInsightsFromMealItems(allMealItems, mealStatuses = {}) {
     if (count > maxCat) { maxCat = count; topRefusedCategory = { category, count } }
   }
 
-  return { totalLogs, okay, difficult, refused, hardestMealType, topRefusedCategory }
+  return { totalLogs, okay, difficult, refused, skipped, hardestMealType, topRefusedCategory }
 }
 
 export function computeNutritionInsightsFromMealItems(allMealItems) {

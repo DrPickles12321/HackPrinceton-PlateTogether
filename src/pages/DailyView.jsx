@@ -37,6 +37,7 @@ const STATUS_OPTIONS = [
   { key: 'okay',      emoji: '😌', label: 'Ok',   color: '#2d9e5f', bg: '#eaf7f0', border: '#a8ddc0' },
   { key: 'difficult', emoji: '😰', label: 'Hard', color: '#c9860a', bg: '#fef8e7', border: '#f5d07a' },
   { key: 'refused',   emoji: '🙅', label: 'No',   color: '#d63f3f', bg: '#fdeaea', border: '#f5a8a8' },
+  { key: 'skipped',   emoji: '⊘',  label: 'Skip', color: '#8a7568', bg: '#f1ece3', border: '#ddd0bd' },
 ]
 
 const RING_NUTRIENTS = [
@@ -78,7 +79,7 @@ function build24HourTime(hourValue, minuteValue, period) {
 
 // ─── Drop zone: always droppable, renders food chips ─────────────────────────
 
-function DropZone({ mealType, items, onRemove, onFoodClick, selectedFoodIndex }) {
+function DropZone({ mealType, items, onRemove, onFoodClick, selectedFoodIndex, isSkipped }) {
   const { setNodeRef, isOver } = useDroppable({
     id: `meal-${mealType}`,
     data: { mealType },
@@ -90,17 +91,17 @@ function DropZone({ mealType, items, onRemove, onFoodClick, selectedFoodIndex })
       style={{
         flex: 1, minHeight: 48, borderRadius: 12,
         border: items.length === 0
-          ? `1.5px dashed ${isOver ? 'var(--coral)' : '#d4a0a5'}`
+          ? `1.5px dashed ${isOver ? 'var(--coral)' : isSkipped ? '#ddd0bd' : '#d4a0a5'}`
           : '1.5px solid var(--border-mid)',
-        background: isOver ? 'var(--coral-light)' : (items.length > 0 ? 'var(--surface-warm)' : 'transparent'),
+        background: isOver ? 'var(--coral-light)' : items.length > 0 ? 'var(--surface-warm)' : isSkipped ? '#f7f3ec' : 'transparent',
         padding: items.length > 0 ? '8px 10px' : '0 14px',
         display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 6,
         transition: 'all 0.15s',
       }}
     >
       {items.length === 0 ? (
-        <span style={{ fontSize: 12, color: isOver ? 'var(--coral)' : '#b08a8e' }}>
-          {isOver ? 'Drop here ↓' : '+ drag a food here'}
+        <span style={{ fontSize: 12, color: isOver ? 'var(--coral)' : isSkipped ? '#8a7568' : '#b08a8e' }}>
+          {isOver ? 'Drop here ↓' : isSkipped ? '⊘ Skipped — no food eaten' : '+ drag a food here'}
         </span>
       ) : (
         <>
@@ -260,22 +261,26 @@ function MealCard({ meal, items, onRemove, latestLog, onQuickLog, time, onTimeCh
             onRemove={onRemove}
             onFoodClick={onFoodClick}
             selectedFoodIndex={selectedFoodIndex}
+            isSkipped={loggedStatus === 'skipped'}
           />
           <div style={{ display: 'flex', gap: 6, flexShrink: 0, paddingTop: items.length > 1 ? 4 : 0 }}>
             {STATUS_OPTIONS.map(opt => {
+              const isSkip = opt.key === 'skipped'
+              const enabled = isSkip ? !hasItems : hasItems
               const selected = loggedStatus === opt.key
               return (
                 <button
                   key={opt.key}
-                  onClick={() => hasItems && onQuickLog(opt.key)}
-                  disabled={!hasItems}
+                  onClick={() => enabled && onQuickLog(opt.key)}
+                  disabled={!enabled}
+                  title={isSkip ? "Mark this meal as skipped — nothing was eaten" : undefined}
                   style={{
                     display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2,
                     padding: '7px 11px', borderRadius: 10,
                     border: `1.5px solid ${selected ? opt.color : opt.border}`,
                     background: selected ? opt.bg : 'white',
-                    cursor: hasItems ? 'pointer' : 'default',
-                    opacity: hasItems ? 1 : 0.38,
+                    cursor: enabled ? 'pointer' : 'default',
+                    opacity: enabled ? 1 : 0.38,
                     transition: 'all 0.15s', minWidth: 50,
                     fontFamily: "'Outfit', sans-serif",
                   }}
@@ -835,7 +840,7 @@ export default function DailyView() {
   const {
     supplementLog, toggleSupplement,
     allMealItems, setMealItems,
-    mealTimes: fbMealTimes, updateMealTime,
+    mealTimesByDate, updateMealTime,
     prescribedSupplements,
   } = useFirebaseData()
 
@@ -846,9 +851,8 @@ export default function DailyView() {
     toggleSupplement(weekDates[selectedDay], nutrient)
   }
 
-  const mealTimes = fbMealTimes
-
   const selectedDate = weekDates[selectedDay]
+  const mealTimes = { ...DEFAULT_MEAL_TIMES, ...(mealTimesByDate[selectedDate] || {}) }
   const mealItems = { ...EMPTY_MEAL_ITEMS, ...(allMealItems[selectedDate] || {}) }
 
   useEffect(() => {
@@ -881,16 +885,17 @@ export default function DailyView() {
 
   // Weekly status counts from Firebase mealStatuses, scoped to the selected week
   const weeklyStatusCounts = useMemo(() => {
-    let okay = 0, difficult = 0, refused = 0
+    let okay = 0, difficult = 0, refused = 0, skipped = 0
     for (const dateIso of Object.values(weekDates)) {
       const dateStatuses = mealStatuses[dateIso] || {}
       for (const status of Object.values(dateStatuses)) {
         if (status === 'okay') okay++
         else if (status === 'difficult') difficult++
         else if (status === 'refused') refused++
+        else if (status === 'skipped') skipped++
       }
     }
-    return { okay, difficult, refused }
+    return { okay, difficult, refused, skipped }
   }, [mealStatuses, weekDates])
 
   function handleDragEnd(event) {
@@ -901,6 +906,9 @@ export default function DailyView() {
     const mealType = over.data.current?.mealType
     if (!food || !mealType) return
     setMealItemsForDay(prev => ({ ...prev, [mealType]: [...prev[mealType], food] }))
+    if (mealStatuses[selectedDate]?.[mealType] === 'skipped') {
+      setMealStatus(selectedDate, mealType, null)
+    }
   }
 
   function removeItem(mealType, index) {
@@ -1008,8 +1016,7 @@ export default function DailyView() {
           {/* Meal cards */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             {MEALS.map(meal => {
-              const hasItems = mealItems[meal.key].length > 0
-              const localStatus = hasItems ? (mealStatuses[selectedDate] || {})[meal.key] ?? null : null
+              const localStatus = (mealStatuses[selectedDate] || {})[meal.key] ?? null
               const latestLog = localStatus ? { status: localStatus } : null
               return (
                 <MealCard
@@ -1020,7 +1027,7 @@ export default function DailyView() {
                   latestLog={latestLog}
                   onQuickLog={status => handleQuickLog(meal.key, status)}
                   time={mealTimes[meal.key]}
-                  onTimeChange={updateMealTime}
+                  onTimeChange={(mealType, value) => updateMealTime(selectedDate, mealType, value)}
                   selectedFoodIndex={selectedFood?.mealType === meal.key ? selectedFood.index : null}
                   onFoodClick={index => setSelectedFood(
                     selectedFood?.mealType === meal.key && selectedFood?.index === index
@@ -1093,6 +1100,7 @@ export default function DailyView() {
               { label: 'Okay',      count: weeklyStatusCounts.okay,      color: '#2d9e5f', bg: '#eaf7f0', border: '#a8ddc0' },
               { label: 'Difficult', count: weeklyStatusCounts.difficult, color: '#c9860a', bg: '#fef8e7', border: '#f5d07a' },
               { label: 'Refused',   count: weeklyStatusCounts.refused,   color: '#d63f3f', bg: '#fdeaea', border: '#f5a8a8' },
+              { label: 'Skipped',   count: weeklyStatusCounts.skipped,   color: '#8a7568', bg: '#f1ece3', border: '#ddd0bd' },
             ].map(s => (
               <div key={s.label} style={{
                 display: 'flex', justifyContent: 'space-between', alignItems: 'center',

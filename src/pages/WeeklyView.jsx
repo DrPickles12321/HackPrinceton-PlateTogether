@@ -26,6 +26,7 @@ const STATUS_STYLE = {
   okay:      { bg: '#E2EEE8', dot: '#5EA87A', label: 'Okay'      },
   difficult: { bg: '#F5EDD8', dot: '#C09040', label: 'Difficult' },
   refused:   { bg: '#F0E0E8', dot: '#B86080', label: 'Refused'   },
+  skipped:   { bg: '#EDE6DA', dot: '#9C8A72', label: 'Skipped'   },
   empty:     { bg: '#F7F2EC', dot: null,      label: ''          },
 }
 
@@ -251,7 +252,7 @@ export default function WeeklyView() {
 
         {/* Legend */}
         <div style={{ display: 'flex', gap: 18, marginBottom: 20, flexWrap: 'wrap' }}>
-          {(['okay', 'difficult', 'refused']).map(s => (
+          {(['okay', 'difficult', 'refused', 'skipped']).map(s => (
             <div key={s} style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
               <div style={{
                 width: 22, height: 14, borderRadius: 5,
