@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useDraggable } from '@dnd-kit/core'
 import { useFirebaseData } from '../contexts/FirebaseDataContext'
 import AddFoodInput from './AddFoodInput'
+import { COMMON_FOODS } from '../data/commonFoods'
 
 const CATEGORIES = [
   { key: 'familiar',   label: 'Familiar',   color: 'var(--mint)',  bg: 'var(--mint-light)',  border: 'var(--mint-mid)' },
@@ -192,8 +193,58 @@ function Section({ config, foods, onDelete, onChangeCategory }) {
   )
 }
 
+function SuggestedFoods({ onAdd, existingNames }) {
+  const existingLower = new Set(existingNames.map(n => n.toLowerCase()))
+
+  return (
+    <div style={{ flex: 1, overflowY: 'auto' }}>
+      {CATEGORIES.map(cfg => {
+        const items = COMMON_FOODS.filter(
+          f => f.suggestedCategory === cfg.key && !existingLower.has(f.name.toLowerCase())
+        )
+        if (items.length === 0) return null
+        return (
+          <div key={cfg.key} style={{ marginBottom: 16 }}>
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: 8,
+              fontSize: 12, fontWeight: 600, color: cfg.color, marginBottom: 8,
+            }}>
+              <span style={{ width: 8, height: 8, borderRadius: '50%', background: cfg.color, display: 'inline-block' }} />
+              {cfg.label}
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+              {items.map(food => (
+                <button
+                  key={food.name}
+                  onClick={() => onAdd({ name: food.name, category: food.suggestedCategory })}
+                  style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    width: '100%', textAlign: 'left',
+                    background: 'white', border: '1.5px solid var(--border)',
+                    borderLeft: `3px solid ${cfg.color}`,
+                    borderRadius: 11, padding: '8px 10px',
+                    fontSize: 13, color: 'var(--text-dark)', cursor: 'pointer',
+                    fontFamily: "'Outfit', sans-serif",
+                    transition: 'box-shadow 0.15s',
+                  }}
+                  onMouseEnter={e => e.currentTarget.style.boxShadow = '0 3px 10px rgba(39,23,6,0.09)'}
+                  onMouseLeave={e => e.currentTarget.style.boxShadow = 'none'}
+                >
+                  <span>{food.name}</span>
+                  <span style={{ color: 'var(--text-light)', fontSize: 16, lineHeight: 1 }}>+</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
 export default function FoodSidebar() {
   const { foodItems, addFoodItem, deleteFoodItem, updateFoodItemCategory } = useFirebaseData()
+  const [tab, setTab] = useState('mine')
 
   function handleAddFood({ name, category }) {
     addFoodItem({ name, category })
@@ -214,20 +265,47 @@ export default function FoodSidebar() {
       <h2 className="font-lora" style={{ fontSize: 17, fontWeight: 500, color: 'var(--text-dark)', marginBottom: 14 }}>
         Our Foods
       </h2>
-      <div style={{ marginBottom: 16 }}>
-        <AddFoodInput onAddFood={handleAddFood} existingFoodNames={existingNames} />
-      </div>
-      <div style={{ flex: 1, overflowY: 'auto' }}>
-        {CATEGORIES.map(cfg => (
-          <Section
-            key={cfg.key}
-            config={cfg}
-            foods={foodItems.filter(f => f.category === cfg.key)}
-            onDelete={handleDelete}
-            onChangeCategory={handleChangeCategory}
-          />
+
+      <div style={{
+        display: 'flex', gap: 4, background: 'var(--surface-warm)',
+        borderRadius: 12, padding: 3, marginBottom: 14,
+      }}>
+        {[{ key: 'mine', label: 'My List' }, { key: 'suggested', label: 'Suggested' }].map(t => (
+          <button
+            key={t.key}
+            onClick={() => setTab(t.key)}
+            style={{
+              flex: 1, padding: '6px 4px', borderRadius: 9, border: 'none',
+              background: tab === t.key ? 'white' : 'transparent',
+              color: tab === t.key ? 'var(--coral)' : 'var(--text-light)',
+              fontWeight: 600, fontSize: 12, cursor: 'pointer',
+              boxShadow: tab === t.key ? '0 1px 5px rgba(39,23,6,0.08)' : 'none',
+              fontFamily: "'Outfit', sans-serif", transition: 'all 0.15s',
+            }}
+          >{t.label}</button>
         ))}
       </div>
+
+      {tab === 'mine' ? (
+        <>
+          <div style={{ marginBottom: 16 }}>
+            <AddFoodInput onAddFood={handleAddFood} existingFoodNames={existingNames} />
+          </div>
+          <div style={{ flex: 1, overflowY: 'auto' }}>
+            {CATEGORIES.map(cfg => (
+              <Section
+                key={cfg.key}
+                config={cfg}
+                foods={foodItems.filter(f => f.category === cfg.key)}
+                onDelete={handleDelete}
+                onChangeCategory={handleChangeCategory}
+              />
+            ))}
+          </div>
+        </>
+      ) : (
+        <SuggestedFoods onAdd={handleAddFood} existingNames={existingNames} />
+      )}
     </div>
   )
 }

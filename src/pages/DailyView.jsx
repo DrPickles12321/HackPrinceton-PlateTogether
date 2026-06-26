@@ -879,10 +879,11 @@ export default function DailyView() {
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }))
 
-  // Weekly status counts from Firebase mealStatuses
+  // Weekly status counts from Firebase mealStatuses, scoped to the selected week
   const weeklyStatusCounts = useMemo(() => {
     let okay = 0, difficult = 0, refused = 0
-    for (const dateStatuses of Object.values(mealStatuses)) {
+    for (const dateIso of Object.values(weekDates)) {
+      const dateStatuses = mealStatuses[dateIso] || {}
       for (const status of Object.values(dateStatuses)) {
         if (status === 'okay') okay++
         else if (status === 'difficult') difficult++
@@ -890,7 +891,7 @@ export default function DailyView() {
       }
     }
     return { okay, difficult, refused }
-  }, [mealStatuses])
+  }, [mealStatuses, weekDates])
 
   function handleDragEnd(event) {
     const { active, over } = event
@@ -1085,7 +1086,9 @@ export default function DailyView() {
             <div style={{
               fontSize: 10, fontWeight: 700, color: 'var(--text-light)',
               letterSpacing: '0.7px', textTransform: 'uppercase', marginBottom: 9,
-            }}>This Week</div>
+            }}>
+              {weekOffset === 0 ? 'This Week' : weekOffset === -1 ? 'Last Week' : weekOffset === 1 ? 'Next Week' : 'Selected Week'}
+            </div>
             {[
               { label: 'Okay',      count: weeklyStatusCounts.okay,      color: '#2d9e5f', bg: '#eaf7f0', border: '#a8ddc0' },
               { label: 'Difficult', count: weeklyStatusCounts.difficult, color: '#c9860a', bg: '#fef8e7', border: '#f5d07a' },
