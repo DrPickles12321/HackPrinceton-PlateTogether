@@ -25,14 +25,17 @@ jobs:
           VITE_FIREBASE_MEASUREMENT_ID: ${{ secrets.VITE_FIREBASE_MEASUREMENT_ID }}
           VITE_AI_PROXY_URL: ${{ secrets.VITE_AI_PROXY_URL }}
       - uses: FirebaseExtended/action-hosting-deploy@v0
+        # Node 20's default happy-eyeballs dual-stack connection racing
+        # (autoSelectFamily) causes "premature close" drops against Google's
+        # APIs on GitHub runners. The release POST succeeds server-side but the
+        # non-idempotent retry then fails with "supplied version is the current
+        # active version", marking a successful deploy as failed. Disabling
+        # family autoselection stops the premature closes at the source.
+        env:
+          NODE_OPTIONS: --no-network-family-autoselection
         with:
           repoToken: ${{ secrets.GITHUB_TOKEN }}
           firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_PLATETOGETHER_66BEB }}
           channelId: live
           projectId: platetogether-66beb
-          # The firebase-tools version bundled with the action retries the
-          # release call non-idempotently: a "premature close" network blip
-          # makes an already-succeeded deploy report failure with "supplied
-          # version is the current active version". Pin a recent CLI that
-          # handles this gracefully.
           firebaseToolsVersion: latest
