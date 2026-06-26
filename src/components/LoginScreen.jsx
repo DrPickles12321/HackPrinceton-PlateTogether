@@ -301,7 +301,12 @@ export default function LoginScreen() {
 }
 
 function generateFamilyCode() {
-  return Math.random().toString(36).substring(2, 8).toUpperCase()
+  // Cryptographically secure, fixed 8-char code from an unambiguous alphabet
+  // (no 0/O/1/I/L). 32^8 ≈ 1.1 trillion combinations to resist guessing.
+  const ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'
+  const bytes = new Uint8Array(8)
+  crypto.getRandomValues(bytes)
+  return Array.from(bytes, b => ALPHABET[b % ALPHABET.length]).join('')
 }
 
 function friendlyError(code) {

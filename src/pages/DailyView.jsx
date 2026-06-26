@@ -271,7 +271,7 @@ function MealCard({ meal, items, onRemove, latestLog, onQuickLog, time, onTimeCh
               return (
                 <button
                   key={opt.key}
-                  onClick={() => enabled && onQuickLog(opt.key)}
+                  onClick={() => enabled && onQuickLog(selected ? null : opt.key)}
                   disabled={!enabled}
                   title={isSkip ? "Mark this meal as skipped — nothing was eaten" : undefined}
                   style={{

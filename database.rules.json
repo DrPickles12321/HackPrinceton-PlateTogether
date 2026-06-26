@@ -10,7 +10,7 @@
       "$uid": {
         ".read": "auth != null && (auth.uid === $uid || root.child('users/' + auth.uid + '/patients/' + $uid).exists())",
 
-        "email":               { ".read": "auth != null", ".write": "auth.uid === $uid" },
+        "email":               { ".read": "auth != null && (auth.uid === $uid || root.child('users/' + auth.uid + '/patients/' + $uid).exists())", ".write": "auth.uid === $uid" },
         "role":                { ".write": "auth.uid === $uid && !data.exists()" },
         "familyCode":          { ".write": "auth.uid === $uid" },
         "patients":            { ".write": "auth.uid === $uid" },

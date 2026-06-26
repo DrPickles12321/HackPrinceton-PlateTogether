@@ -387,10 +387,14 @@ export function FirebaseDataProvider({ children }) {
     const codeSnap = await get(ref(db, `familyCodes/${upper}`))
     if (!codeSnap.exists()) return { error: 'Family code not found' }
     const patientUid = codeSnap.val()
+    if (patientUid === uid) return { error: "That's your own family code" }
     if (patients.some(p => p.uid === patientUid)) return { error: 'Patient already added' }
+    // Establish the relationship first — the patient's email is only readable
+    // once it exists, so we write addedAt, then read the email, then patch it in.
+    await set(ref(db, `users/${uid}/patients/${patientUid}`), { addedAt: new Date().toISOString() })
     const emailSnap = await get(ref(db, `users/${patientUid}/email`))
     const email = emailSnap.val() || patientUid
-    await set(ref(db, `users/${uid}/patients/${patientUid}`), { email, addedAt: new Date().toISOString() })
+    await set(ref(db, `users/${uid}/patients/${patientUid}/email`), email)
     return { success: true }
   }
 

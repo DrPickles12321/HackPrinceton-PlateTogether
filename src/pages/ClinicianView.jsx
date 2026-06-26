@@ -400,13 +400,13 @@ export default function ClinicianView() {
               <input
                 value={addCodeInput}
                 onChange={e => { setAddCodeInput(e.target.value.toUpperCase()); setAddCodeError('') }}
-                placeholder="ABC123"
-                maxLength={6}
+                placeholder="ABCD2345"
+                maxLength={8}
                 style={{
                   padding: '9px 16px', borderRadius: 999,
                   border: '1.5px solid var(--border)', fontSize: 13,
                   color: 'var(--text-dark)', fontFamily: 'inherit',
-                  outline: 'none', width: 100, letterSpacing: '2px', fontWeight: 600,
+                  outline: 'none', width: 120, letterSpacing: '2px', fontWeight: 600,
                   background: 'var(--surface)',
                 }}
                 onFocus={e => e.target.style.borderColor = 'var(--coral)'}
