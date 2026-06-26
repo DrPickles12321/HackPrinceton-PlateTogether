@@ -30,3 +30,9 @@ jobs:
           firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_PLATETOGETHER_66BEB }}
           channelId: live
           projectId: platetogether-66beb
+          # The firebase-tools version bundled with the action retries the
+          # release call non-idempotently: a "premature close" network blip
+          # makes an already-succeeded deploy report failure with "supplied
+          # version is the current active version". Pin a recent CLI that
+          # handles this gracefully.
+          firebaseToolsVersion: latest
