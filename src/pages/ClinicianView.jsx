@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useFirebaseData } from '../contexts/FirebaseDataContext'
 import { generateClinicianDigest } from '../lib/aiInsights'
 import { getWeekIsoDates } from '../lib/insights'
+import { detectWeeklyAnomalies } from '../lib/anomalyDetection'
 import WeeklyGrid from '../components/WeeklyGrid'
 import WeeklyInsights from '../components/WeeklyInsights'
 import NotesPanel from '../components/NotesPanel'
@@ -48,7 +49,7 @@ const DIGEST_TYPE_LABEL = {
   watch:       'Watch',
 }
 
-function ClinicianDigestSection({ allMealItems, mealStatuses, parentNotes }) {
+function ClinicianDigestSection({ allMealItems, mealStatuses, mealTimesByDate = {}, parentNotes }) {
   const [digest, setDigest] = useState(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
@@ -62,6 +63,7 @@ function ClinicianDigestSection({ allMealItems, mealStatuses, parentNotes }) {
       Object.entries(mealStatuses).filter(([date]) => weekDates.has(date))
     )
     const thisWeekNotes = parentNotes.filter(n => weekDates.has(n.date))
+    const anomalies = detectWeeklyAnomalies({ allMealItems, mealStatuses, mealTimesByDate })
 
     setLoading(true)
     setError(null)
@@ -69,6 +71,7 @@ function ClinicianDigestSection({ allMealItems, mealStatuses, parentNotes }) {
       mealItemsByDate: thisWeekItems,
       mealStatusesByDate: thisWeekStatuses,
       parentNotes: thisWeekNotes,
+      anomalies,
     })
       .then(result => { setDigest(result || []); setLoading(false) })
       .catch(err => { console.error('Clinician digest error:', err); setError(true); setLoading(false) })
@@ -300,6 +303,7 @@ export default function ClinicianView() {
     parentNotesArray: parentNotes,
     allMealItems: parentMealItems,
     mealStatuses: parentMealStatuses,
+    activeMealTimesByDate: parentMealTimesByDate,
     clinicianNotesRead,
     markPatientParentNoteReadById,
     patients,
@@ -452,6 +456,7 @@ export default function ClinicianView() {
                 key={viewingPatientUid}
                 allMealItems={parentMealItems}
                 mealStatuses={parentMealStatuses}
+                mealTimesByDate={parentMealTimesByDate}
                 parentNotes={parentNotes}
               />
             </SectionCard>

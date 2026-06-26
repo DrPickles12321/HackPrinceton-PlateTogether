@@ -2,6 +2,8 @@ import { useMemo, useState, useEffect, useRef } from 'react'
 import { useOutletContext } from 'react-router-dom'
 import { generateWeeklyInsights } from '../lib/aiInsights'
 import { getWeekIsoDates } from '../lib/insights'
+import { detectWeeklyAnomalies } from '../lib/anomalyDetection'
+import { useFirebaseData } from '../contexts/FirebaseDataContext'
 
 const MEAL_LABELS = { breakfast: 'Breakfast', lunch: 'Lunch', snack: 'Snack', dinner: 'Dinner' }
 
@@ -84,7 +86,7 @@ const INSIGHT_STYLES = {
   notice:   { bg: 'var(--coral-light)', border: '#fecaca' },
 }
 
-function AIInsightsSection({ weekStatuses, allMealItems = {} }) {
+function AIInsightsSection({ weekStatuses, allMealItems = {}, mealStatuses = {}, mealTimesByDate = {} }) {
   const [insights, setInsights] = useState(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
@@ -109,9 +111,10 @@ function AIInsightsSection({ weekStatuses, allMealItems = {} }) {
       refused: weekStatuses.filter(s => s.status === 'refused').length,
       skipped: weekStatuses.filter(s => s.status === 'skipped').length,
     }
+    const anomalies = detectWeeklyAnomalies({ allMealItems, mealStatuses, mealTimesByDate })
     setLoading(true)
     setError(null)
-    generateWeeklyInsights({ parentMealItemsByDate: thisWeekItems, mealLogs: statusCounts })
+    generateWeeklyInsights({ parentMealItemsByDate: thisWeekItems, mealLogs: statusCounts, anomalies })
       .then(result => { setInsights(result); setLoading(false) })
       .catch(err => { console.error('AI insights error:', err); setError(true); setLoading(false) })
   }
@@ -180,6 +183,7 @@ function AIInsightsSection({ weekStatuses, allMealItems = {} }) {
 
 export default function StatsView() {
   const { mealStatuses = {}, allMealItems = {} } = useOutletContext()
+  const { mealTimesByDate = {} } = useFirebaseData()
 
   const thisWeekDates = useMemo(() => getWeekIsoDates(0), [])
   const lastWeekDates = useMemo(() => getWeekIsoDates(-1), [])
@@ -399,7 +403,7 @@ export default function StatsView() {
           </div>
         )}
 
-        <AIInsightsSection weekStatuses={thisWeekStatuses} allMealItems={allMealItems} />
+        <AIInsightsSection weekStatuses={thisWeekStatuses} allMealItems={allMealItems} mealStatuses={mealStatuses} mealTimesByDate={mealTimesByDate} />
       </div>
     </div>
   )

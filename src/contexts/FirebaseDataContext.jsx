@@ -71,6 +71,7 @@ export function FirebaseDataProvider({ children }) {
   const [patients, setPatients]                       = useState([])   // [{uid, email}]
   const [viewingPatientUid, setViewingPatientUid]     = useState(null)
   const [patientFbMealData, setPatientFbMealData]     = useState({})
+  const [patientMealTimesByDate, setPatientMealTimesByDate] = useState({})
   const [patientNutritionalTargets, setPatientNutritionalTargets] = useState(null)
   const [ownPrescribedSupplements, setOwnPrescribedSupplements]       = useState([])
   const [patientPrescribedSupplements, setPatientPrescribedSupplements] = useState([])
@@ -170,6 +171,7 @@ export function FirebaseDataProvider({ children }) {
   useEffect(() => {
     if (!viewingPatientUid) {
       setPatientFbMealData({})
+      setPatientMealTimesByDate({})
       setPatientNutritionalTargets(null)
       setPatientPrescribedSupplements([])
       setPatientParentNotesByDate({})
@@ -179,6 +181,9 @@ export function FirebaseDataProvider({ children }) {
     const unsubs = []
     unsubs.push(onValue(ref(db, `users/${viewingPatientUid}/mealLogs`), snap => {
       setPatientFbMealData(normalizeMealData(snap.val()))
+    }))
+    unsubs.push(onValue(ref(db, `users/${viewingPatientUid}/mealTimes`), snap => {
+      setPatientMealTimesByDate(snap.val() || {})
     }))
     unsubs.push(onValue(ref(db, `users/${viewingPatientUid}/nutritionalTargets`), snap => {
       const val = snap.val()
@@ -200,6 +205,7 @@ export function FirebaseDataProvider({ children }) {
 
   // ── Active data (patient's when clinician is viewing, own otherwise) ───────
   const activeFbMealData       = viewingPatientUid ? patientFbMealData : fbMealData
+  const activeMealTimesByDate  = viewingPatientUid ? patientMealTimesByDate : mealTimesByDate
   const nutritionalTargets     = viewingPatientUid ? patientNutritionalTargets : ownNutritionalTargets
   const allMealItems           = deriveMealItems(activeFbMealData)
   const mealStatuses           = deriveMealStatuses(activeFbMealData)
@@ -398,6 +404,7 @@ export function FirebaseDataProvider({ children }) {
       markParentNoteReadById,
       markPatientParentNoteReadById,
       mealTimesByDate,
+      activeMealTimesByDate,
       updateMealTime,
       supplementLog,
       toggleSupplement,
