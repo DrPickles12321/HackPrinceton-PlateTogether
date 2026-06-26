@@ -328,8 +328,10 @@ export function FirebaseDataProvider({ children }) {
     if (!uid) return
     const id = crypto.randomUUID()
     const food = { id, name, category }
+    // The onValue listener on foodItems replaces the full list from Firebase's
+    // local cache synchronously during set(), so an optimistic append here would
+    // show the item twice. Let the listener be the single source of truth.
     set(ref(db, `users/${uid}/foodItems/${id}`), food)
-    setFoodItems(prev => [...prev, food])
   }
 
   function deleteFoodItem(id) {
