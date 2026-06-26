@@ -195,49 +195,50 @@ function Section({ config, foods, onDelete, onChangeCategory }) {
 
 function SuggestedFoods({ onAdd, existingNames }) {
   const existingLower = new Set(existingNames.map(n => n.toLowerCase()))
+  const items = COMMON_FOODS
+    .filter(f => !existingLower.has(f.name.toLowerCase()))
+    .map(f => f.name)
+    .sort((a, b) => a.localeCompare(b))
 
   return (
     <div style={{ flex: 1, overflowY: 'auto' }}>
-      {CATEGORIES.map(cfg => {
-        const items = COMMON_FOODS.filter(
-          f => f.suggestedCategory === cfg.key && !existingLower.has(f.name.toLowerCase())
-        )
-        if (items.length === 0) return null
-        return (
-          <div key={cfg.key} style={{ marginBottom: 16 }}>
-            <div style={{
-              display: 'flex', alignItems: 'center', gap: 8,
-              fontSize: 12, fontWeight: 600, color: cfg.color, marginBottom: 8,
-            }}>
-              <span style={{ width: 8, height: 8, borderRadius: '50%', background: cfg.color, display: 'inline-block' }} />
-              {cfg.label}
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-              {items.map(food => (
+      <p style={{ fontSize: 11, color: 'var(--text-light)', lineHeight: 1.5, marginBottom: 10 }}>
+        Pick how it feels right now — familiar, working on, or a challenge.
+      </p>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+        {items.map(name => (
+          <div
+            key={name}
+            style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              background: 'white', border: '1.5px solid var(--border)',
+              borderRadius: 11, padding: '8px 10px', gap: 8,
+            }}
+          >
+            <span style={{ fontSize: 13, color: 'var(--text-dark)', flex: 1 }}>{name}</span>
+            <div style={{ display: 'flex', gap: 5, flexShrink: 0 }}>
+              {CATEGORIES.map(cat => (
                 <button
-                  key={food.name}
-                  onClick={() => onAdd({ name: food.name, category: food.suggestedCategory })}
+                  key={cat.key}
+                  title={`Add as ${cat.label}`}
+                  aria-label={`Add ${name} as ${cat.label}`}
+                  onClick={() => onAdd({ name, category: cat.key })}
                   style={{
-                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                    width: '100%', textAlign: 'left',
-                    background: 'white', border: '1.5px solid var(--border)',
-                    borderLeft: `3px solid ${cfg.color}`,
-                    borderRadius: 11, padding: '8px 10px',
-                    fontSize: 13, color: 'var(--text-dark)', cursor: 'pointer',
-                    fontFamily: "'Outfit', sans-serif",
-                    transition: 'box-shadow 0.15s',
+                    width: 22, height: 22, borderRadius: '50%', padding: 0,
+                    border: `1.5px solid ${cat.border}`, background: cat.bg,
+                    cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    transition: 'transform 0.1s',
                   }}
-                  onMouseEnter={e => e.currentTarget.style.boxShadow = '0 3px 10px rgba(39,23,6,0.09)'}
-                  onMouseLeave={e => e.currentTarget.style.boxShadow = 'none'}
+                  onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.12)'}
+                  onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
                 >
-                  <span>{food.name}</span>
-                  <span style={{ color: 'var(--text-light)', fontSize: 16, lineHeight: 1 }}>+</span>
+                  <span style={{ width: 8, height: 8, borderRadius: '50%', background: cat.color, display: 'block' }} />
                 </button>
               ))}
             </div>
           </div>
-        )
-      })}
+        ))}
+      </div>
     </div>
   )
 }
