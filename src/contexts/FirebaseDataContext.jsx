@@ -314,8 +314,9 @@ export function FirebaseDataProvider({ children }) {
   function saveClinicianNote(note) {
     if (!uid || savedClinicianNotes.some(n => n.id === note.id)) return
     const saved = { id: note.id, body: note.body, created_at: note.created_at, savedAt: new Date().toISOString() }
+    // The savedClinicianNotes onValue listener full-replaces the list from
+    // Firebase's local cache during set(), so an optimistic append would dupe it.
     set(ref(db, `users/${uid}/savedClinicianNotes/${note.id}`), saved)
-    setSavedClinicianNotes(prev => [...prev, saved])
   }
 
   function unsaveClinicianNote(noteId) {
@@ -354,15 +355,16 @@ export function FirebaseDataProvider({ children }) {
 
   function writeClinicianNote({ body, existingNoteId }) {
     if (!viewingPatientUid) return
+    // The patientClinicianNotes onValue listener full-replaces the list from
+    // Firebase's local cache during set(), so we don't optimistically mutate
+    // local state here — a new-note append would otherwise show it twice.
     if (existingNoteId) {
       const existing = patientClinicianNotes.find(n => n.id === existingNoteId)
       const note = { ...existing, body }
       set(ref(db, `users/${viewingPatientUid}/clinicianNotes/${existingNoteId}`), note)
-      setPatientClinicianNotes(prev => prev.map(n => n.id === existingNoteId ? note : n))
     } else {
       const note = { id: crypto.randomUUID(), body, created_at: new Date().toISOString() }
       set(ref(db, `users/${viewingPatientUid}/clinicianNotes/${note.id}`), note)
-      setPatientClinicianNotes(prev => [note, ...prev])
     }
   }
 
