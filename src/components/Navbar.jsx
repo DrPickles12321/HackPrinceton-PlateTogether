@@ -3,6 +3,7 @@ import { signOut } from 'firebase/auth'
 import { auth } from '../firebase'
 import { useAuth } from '../contexts/AuthContext'
 import { useFirebaseData } from '../contexts/FirebaseDataContext'
+import { useIsMobile } from '../hooks/useIsMobile'
 
 const PARENT_TABS = [
   { to: '/parent/daily',  label: 'Daily' },
@@ -15,6 +16,7 @@ export default function Navbar() {
   const { familyCode } = useFirebaseData()
   const navigate = useNavigate()
   const { pathname } = useLocation()
+  const isMobile    = useIsMobile()
   const isParent    = pathname.startsWith('/parent')
   const isClinician = pathname.startsWith('/clinician')
 
@@ -43,8 +45,8 @@ export default function Navbar() {
             }}>Plate Together</span>
           </div>
 
-          {/* Parent sub-tabs (center) */}
-          {isParent && (
+          {/* Parent sub-tabs (center) — hidden on mobile, replaced by bottom tab bar */}
+          {isParent && !isMobile && (
             <div style={{
               display: 'flex', alignItems: 'center', gap: 2,
               background: 'var(--surface-warm)', padding: '3px',

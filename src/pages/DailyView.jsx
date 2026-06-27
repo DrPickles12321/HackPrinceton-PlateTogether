@@ -4,6 +4,8 @@ import { DndContext, DragOverlay, PointerSensor, useSensor, useSensors, useDropp
 import FoodSidebar from '../components/FoodSidebar'
 import FoodCardPreview from '../components/FoodCardPreview'
 import SupplementChecklist from '../components/SupplementChecklist'
+import AddFoodSheet from '../components/AddFoodSheet'
+import { useIsMobile } from '../hooks/useIsMobile'
 import { lookupNutrition } from '../lib/nutritionService'
 import { useNutritionalTargets } from '../contexts/NutritionalTargetsContext'
 import { useFirebaseData } from '../contexts/FirebaseDataContext'
@@ -355,6 +357,258 @@ function MealCard({ meal, items, onRemove, latestLog, onQuickLog, time, onTimeCh
   )
 }
 
+// ─── Mobile meal card: collapsed summary, tap to expand ─────────────────────
+
+function MobileMealCard({
+  meal, items, latestLog, onQuickLog, time, onTimeChange,
+  expanded, onToggleExpand, onOpenAddFood, onRemove,
+  selectedFoodIndex, onFoodClick, onFoodStatusSet,
+}) {
+  const loggedStatus = latestLog?.status || null
+  const hasItems = items.length > 0
+  const isSkipped = loggedStatus === 'skipped'
+  const statusMeta = STATUS_OPTIONS.find(o => o.key === loggedStatus)
+  const { hour, minute, period } = parseTimeValue(time)
+  const timeLabel = `${hour}:${minute} ${period}`
+  const foodSummary = items.map(f => f.name).join(', ')
+
+  function handleSkipTap(e) {
+    e.stopPropagation()
+    onQuickLog(isSkipped ? null : 'skipped')
+  }
+
+  return (
+    <div style={{
+      background: 'white', borderRadius: 16,
+      border: '1.5px solid var(--border)',
+      boxShadow: '0 2px 10px rgba(39,23,6,0.05)',
+      overflow: 'hidden',
+    }}>
+      {/* Collapsed row — tap anywhere (except Skip) to expand/collapse */}
+      <div
+        role="button"
+        tabIndex={0}
+        onClick={onToggleExpand}
+        onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onToggleExpand() } }}
+        style={{
+          width: '100%', display: 'flex', alignItems: 'center', gap: 10,
+          padding: 14, minHeight: 56, cursor: 'pointer', boxSizing: 'border-box',
+          fontFamily: "'Outfit', sans-serif",
+        }}
+      >
+        <span style={{
+          width: 34, height: 34, borderRadius: 10, background: meal.bg,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          fontSize: 16, flexShrink: 0,
+        }}>{meal.icon}</span>
+
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontWeight: 600, fontSize: 13, color: meal.color }}>{meal.label}</div>
+          {hasItems ? (
+            <div style={{
+              fontSize: 12, color: 'var(--text-light)', marginTop: 1,
+              whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+            }}>{foodSummary}</div>
+          ) : isSkipped ? (
+            <div style={{ fontSize: 12, color: 'var(--text-light)', marginTop: 1 }}>⊘ Skipped</div>
+          ) : (
+            <div style={{ fontSize: 12, color: '#b08a8e', marginTop: 1 }}>Tap to add foods</div>
+          )}
+        </div>
+
+        <span style={{ fontSize: 11, color: 'var(--text-light)', flexShrink: 0 }}>{timeLabel}</span>
+
+        {!hasItems && !isSkipped ? (
+          <button
+            onClick={handleSkipTap}
+            style={{
+              fontSize: 11, fontWeight: 600, color: '#8a7568',
+              border: '1.5px solid #ddd0bd', borderRadius: 20, background: 'white',
+              padding: '6px 10px', flexShrink: 0, minHeight: 30, cursor: 'pointer',
+              fontFamily: "'Outfit', sans-serif",
+            }}
+          >Skip</button>
+        ) : (
+          <span style={{
+            width: 9, height: 9, borderRadius: '50%', flexShrink: 0,
+            background: statusMeta ? statusMeta.color : 'transparent',
+            border: statusMeta ? 'none' : '1.5px solid var(--border-mid)',
+          }} />
+        )}
+
+        <span style={{
+          fontSize: 14, color: 'var(--text-light)', flexShrink: 0,
+          transform: expanded ? 'rotate(90deg)' : 'none', transition: 'transform 0.15s',
+        }}>›</span>
+      </div>
+
+      {/* Expanded body */}
+      {expanded && (
+        <div style={{ padding: '0 14px 16px', borderTop: '1px solid var(--border)' }} onClick={e => e.stopPropagation()}>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '10px 0 2px' }}>
+            <input
+              type="time"
+              value={time}
+              onChange={e => e.target.value && onTimeChange(meal.key, e.target.value)}
+              style={{
+                border: 'none', background: meal.bg, borderRadius: 10,
+                padding: '7px 10px', fontSize: 13, fontWeight: 600, color: meal.color,
+                fontFamily: "'Outfit', sans-serif",
+              }}
+            />
+          </div>
+
+          {/* Food chips */}
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>
+            {items.length === 0 ? (
+              <span style={{ fontSize: 12, color: 'var(--text-light)', padding: '4px 0' }}>
+                No foods yet — tap "+ Add food" below.
+              </span>
+            ) : items.map((food, i) => (
+              <span
+                key={i}
+                onClick={() => onFoodClick(i)}
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 5,
+                  background: 'var(--surface-warm)', border: '1px solid var(--border-mid)',
+                  borderRadius: 9, padding: '6px 6px 6px 11px', fontSize: 13,
+                  fontWeight: 500, color: 'var(--text-dark)', cursor: 'pointer',
+                  outline: selectedFoodIndex === i ? '2px solid #E8735A' : 'none',
+                  outlineOffset: 1, minHeight: 32,
+                }}
+              >
+                {food.status && (
+                  <span style={{
+                    width: 7, height: 7, borderRadius: '50%', flexShrink: 0,
+                    background: food.status === 'okay' ? '#2d9e5f'
+                      : food.status === 'difficult' ? '#c9860a' : '#d63f3f',
+                  }} />
+                )}
+                {food.name}
+                <button
+                  onClick={e => { e.stopPropagation(); onRemove(i) }}
+                  style={{
+                    background: 'none', border: 'none', cursor: 'pointer',
+                    color: 'var(--text-light)', fontSize: 17, lineHeight: 1,
+                    padding: '2px 3px', fontFamily: 'inherit', minWidth: 26, minHeight: 26,
+                  }}
+                >×</button>
+              </span>
+            ))}
+          </div>
+
+          {/* Per-food status */}
+          {selectedFoodIndex != null && items[selectedFoodIndex] && (
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap',
+              background: 'var(--surface-warm)', border: '1px solid var(--border-mid)',
+              borderRadius: 10, padding: '8px 10px', marginBottom: 10,
+            }}>
+              <span style={{ fontSize: 11, color: 'var(--text-light)', marginRight: 2 }}>
+                {items[selectedFoodIndex].name}:
+              </span>
+              {[
+                { key: 'okay',      label: 'Ok',   color: '#2d9e5f' },
+                { key: 'difficult', label: 'Hard', color: '#c9860a' },
+                { key: 'refused',   label: 'No',   color: '#d63f3f' },
+              ].map(opt => {
+                const isSelected = items[selectedFoodIndex]?.status === opt.key
+                return (
+                  <button
+                    key={opt.key}
+                    onClick={() => onFoodStatusSet(meal.key, selectedFoodIndex, isSelected ? null : opt.key)}
+                    style={{
+                      padding: '8px 12px', borderRadius: 9, border: 'none',
+                      outline: isSelected ? `2px solid ${opt.color}` : '1px solid var(--border)',
+                      background: isSelected ? 'white' : 'white',
+                      color: opt.color, fontSize: 12, fontWeight: 600,
+                      cursor: 'pointer', minHeight: 36, fontFamily: "'Outfit', sans-serif",
+                    }}
+                  >{opt.label}</button>
+                )
+              })}
+            </div>
+          )}
+
+          <button
+            onClick={onOpenAddFood}
+            style={{
+              width: '100%', padding: 12, borderRadius: 12,
+              border: `1.5px dashed ${meal.color}`, background: 'none',
+              color: meal.color, fontSize: 13, fontWeight: 600, cursor: 'pointer',
+              minHeight: 44, marginBottom: 12, fontFamily: "'Outfit', sans-serif",
+            }}
+          >+ Add food</button>
+
+          <div style={{ display: 'flex', gap: 6 }}>
+            {STATUS_OPTIONS.map(opt => {
+              const isSkip = opt.key === 'skipped'
+              const enabled = isSkip ? !hasItems : hasItems
+              const selected = loggedStatus === opt.key
+              return (
+                <button
+                  key={opt.key}
+                  onClick={() => enabled && onQuickLog(selected ? null : opt.key)}
+                  disabled={!enabled}
+                  style={{
+                    flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2,
+                    padding: '9px 4px', borderRadius: 11, minHeight: 48,
+                    border: `1.5px solid ${selected ? opt.color : opt.border}`,
+                    background: selected ? opt.bg : 'white',
+                    cursor: enabled ? 'pointer' : 'default',
+                    opacity: enabled ? 1 : 0.38,
+                    fontFamily: "'Outfit', sans-serif",
+                  }}
+                >
+                  <span style={{ fontSize: 17 }}>{opt.emoji}</span>
+                  <span style={{ fontSize: 10, fontWeight: 500, color: selected ? opt.color : '#999' }}>{opt.label}</span>
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─── Mobile supplements: collapsible "N of M" row ────────────────────────────
+
+function MobileSupplements({ checkedSupplements, onToggleChecked, prescribedSupplements }) {
+  const [open, setOpen] = useState(false)
+  const total = prescribedSupplements.length
+  if (total === 0) return null
+  const done = prescribedSupplements.filter(n => checkedSupplements.has(n)).length
+
+  return (
+    <div style={{ marginTop: 14 }}>
+      <button
+        onClick={() => setOpen(o => !o)}
+        style={{
+          width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          padding: '12px 14px', minHeight: 48, borderRadius: 14,
+          background: 'white', border: '1.5px solid var(--border)',
+          cursor: 'pointer', fontFamily: "'Outfit', sans-serif",
+        }}
+      >
+        <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--coral)' }}>
+          Supplements · {done} of {total}
+        </span>
+        <span style={{ fontSize: 13, color: 'var(--text-light)' }}>{open ? '▲' : '▼'}</span>
+      </button>
+      {open && (
+        <div style={{ marginTop: 8 }}>
+          <SupplementChecklist
+            checkedSupplements={checkedSupplements}
+            onToggleChecked={onToggleChecked}
+            prescribedSupplements={prescribedSupplements}
+          />
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ─── Progress ring ────────────────────────────────────────────────────────────
 
 function ProgressRing({ value, target, color, darkColor, label }) {
@@ -402,7 +656,7 @@ function ProgressRing({ value, target, color, darkColor, label }) {
 
 // ─── Parent note section ──────────────────────────────────────────────────────
 
-function ParentNoteSection({ note, selectedDate, onSave }) {
+export function ParentNoteSection({ note, selectedDate, onSave }) {
   const [body, setBody] = useState(note?.body || '')
   const [isSaving, setIsSaving] = useState(false)
   const [saveStatus, setSaveStatus] = useState('idle')
@@ -574,7 +828,7 @@ function DailyProgressPanel({ mealItems }) {
 
 // ─── Clinician notes sidebar ──────────────────────────────────────────────────
 
-function ClinicianNotesSidebar({ clinicianNotes, clinicianNotesRead, markClinicianNoteRead, savedClinicianNotes, saveClinicianNote, unsaveClinicianNote, clearAllSavedNotes }) {
+export function ClinicianNotesSidebar({ clinicianNotes, clinicianNotesRead, markClinicianNoteRead, savedClinicianNotes, saveClinicianNote, unsaveClinicianNote, clearAllSavedNotes }) {
   const [showSaved, setShowSaved] = useState(false)
   const [showAll, setShowAll] = useState(false)
   const [expandedNoteId, setExpandedNoteId] = useState(null)
@@ -836,6 +1090,9 @@ export default function DailyView() {
   const [selectedDay, setSelectedDay] = useState(getTodayKey)
   const [activeDrag, setActiveDrag] = useState(null)
   const [selectedFood, setSelectedFood] = useState(null)
+  const [expandedMeal, setExpandedMeal] = useState(null)
+  const [addFoodSheetMeal, setAddFoodSheetMeal] = useState(null)
+  const isMobile = useIsMobile()
 
   const {
     supplementLog, toggleSupplement,
@@ -898,6 +1155,13 @@ export default function DailyView() {
     return { okay, difficult, refused, skipped }
   }, [mealStatuses, weekDates])
 
+  function addFoodToMeal(mealType, food) {
+    setMealItemsForDay(prev => ({ ...prev, [mealType]: [...prev[mealType], food] }))
+    if (mealStatuses[selectedDate]?.[mealType] === 'skipped') {
+      setMealStatus(selectedDate, mealType, null)
+    }
+  }
+
   function handleDragEnd(event) {
     const { active, over } = event
     setActiveDrag(null)
@@ -905,10 +1169,20 @@ export default function DailyView() {
     const food = active.data.current?.food
     const mealType = over.data.current?.mealType
     if (!food || !mealType) return
-    setMealItemsForDay(prev => ({ ...prev, [mealType]: [...prev[mealType], food] }))
-    if (mealStatuses[selectedDate]?.[mealType] === 'skipped') {
-      setMealStatus(selectedDate, mealType, null)
+    addFoodToMeal(mealType, food)
+  }
+
+  function stepDay(direction) {
+    const idx = DAYS.findIndex(d => d.key === selectedDay)
+    let nextIdx = idx + direction
+    if (nextIdx < 0) {
+      setWeekOffset(o => o - 1)
+      nextIdx = DAYS.length - 1
+    } else if (nextIdx >= DAYS.length) {
+      setWeekOffset(o => o + 1)
+      nextIdx = 0
     }
+    setSelectedDay(DAYS[nextIdx].key)
   }
 
   function removeItem(mealType, index) {
@@ -922,6 +1196,130 @@ export default function DailyView() {
 
   function handleQuickLog(mealType, status) {
     setMealStatus(selectedDate, mealType, status)
+  }
+
+  if (isMobile) {
+    const dateObj = new Date(selectedDate + 'T12:00:00')
+    const dayLabel = selectedDate === TODAY_ISO
+      ? 'Today'
+      : dateObj.toLocaleDateString('en-US', { weekday: 'long' })
+    const dateLabel = dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+
+    return (
+      <>
+        <div style={{ padding: '12px 14px 32px', maxWidth: 480, margin: '0 auto', width: '100%' }}>
+
+          {/* Compact day header */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+            <button
+              onClick={() => stepDay(-1)}
+              aria-label="Previous day"
+              style={{
+                width: 40, height: 40, borderRadius: '50%', border: 'none',
+                background: 'white', boxShadow: '0 1px 4px rgba(39,23,6,0.08)',
+                color: 'var(--text-light)', fontSize: 18, cursor: 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+              }}
+            >‹</button>
+            <div style={{ textAlign: 'center' }}>
+              <div className="font-lora" style={{ fontSize: 17, fontWeight: 500, color: 'var(--text-dark)' }}>{dayLabel}</div>
+              <div style={{ fontSize: 11, color: 'var(--text-light)' }}>{dateLabel}</div>
+            </div>
+            <button
+              onClick={() => stepDay(1)}
+              aria-label="Next day"
+              style={{
+                width: 40, height: 40, borderRadius: '50%', border: 'none',
+                background: 'white', boxShadow: '0 1px 4px rgba(39,23,6,0.08)',
+                color: 'var(--text-light)', fontSize: 18, cursor: 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+              }}
+            >›</button>
+          </div>
+
+          {/* Meal cards */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {MEALS.map(meal => {
+              const localStatus = (mealStatuses[selectedDate] || {})[meal.key] ?? null
+              const latestLog = localStatus ? { status: localStatus } : null
+              return (
+                <MobileMealCard
+                  key={meal.key}
+                  meal={meal}
+                  items={mealItems[meal.key]}
+                  latestLog={latestLog}
+                  onQuickLog={status => handleQuickLog(meal.key, status)}
+                  time={mealTimes[meal.key]}
+                  onTimeChange={(mealType, value) => updateMealTime(selectedDate, mealType, value)}
+                  expanded={expandedMeal === meal.key}
+                  onToggleExpand={() => setExpandedMeal(prev => prev === meal.key ? null : meal.key)}
+                  onOpenAddFood={() => setAddFoodSheetMeal(meal.key)}
+                  onRemove={index => removeItem(meal.key, index)}
+                  selectedFoodIndex={selectedFood?.mealType === meal.key ? selectedFood.index : null}
+                  onFoodClick={index => setSelectedFood(
+                    selectedFood?.mealType === meal.key && selectedFood?.index === index
+                      ? null
+                      : { mealType: meal.key, index }
+                  )}
+                  onFoodStatusSet={setFoodStatus}
+                />
+              )
+            })}
+          </div>
+
+          <MobileSupplements
+            checkedSupplements={checkedSupplements}
+            onToggleChecked={handleToggleSupplement}
+            prescribedSupplements={prescribedSupplements}
+          />
+
+          {/* Daily progress rings */}
+          <DailyProgressPanel mealItems={mealItems} />
+
+          {/* Notes live in their own tab on mobile — see NotesView */}
+
+          <div style={{ marginTop: 18 }}>
+            <div style={{
+              fontSize: 10, fontWeight: 700, color: 'var(--text-light)',
+              letterSpacing: '0.7px', textTransform: 'uppercase', marginBottom: 9,
+            }}>
+              {weekOffset === 0 ? 'This Week' : weekOffset === -1 ? 'Last Week' : weekOffset === 1 ? 'Next Week' : 'Selected Week'}
+            </div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+              {[
+                { label: 'Okay',      count: weeklyStatusCounts.okay,      color: '#2d9e5f', bg: '#eaf7f0', border: '#a8ddc0' },
+                { label: 'Difficult', count: weeklyStatusCounts.difficult, color: '#c9860a', bg: '#fef8e7', border: '#f5d07a' },
+                { label: 'Refused',   count: weeklyStatusCounts.refused,   color: '#d63f3f', bg: '#fdeaea', border: '#f5a8a8' },
+                { label: 'Skipped',   count: weeklyStatusCounts.skipped,   color: '#8a7568', bg: '#f1ece3', border: '#ddd0bd' },
+              ].map(s => (
+                <div key={s.label} style={{
+                  flex: '1 1 calc(50% - 4px)', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                  padding: '8px 11px', borderRadius: 10, background: s.bg,
+                  border: `1px solid ${s.border}`, boxSizing: 'border-box',
+                }}>
+                  <span style={{ fontSize: 12, color: s.color, fontWeight: 500 }}>{s.label}</span>
+                  <span style={{ fontSize: 16, fontWeight: 700, color: s.color }}>{s.count}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <p style={{
+            fontSize: 11, color: 'var(--text-light)', lineHeight: 1.6,
+            borderTop: '1px solid var(--border)', paddingTop: 18, marginTop: 24,
+          }}>
+            This tool supports meal planning between families and their care team. Not a substitute for medical advice.
+          </p>
+        </div>
+
+        <AddFoodSheet
+          open={addFoodSheetMeal != null}
+          onClose={() => setAddFoodSheetMeal(null)}
+          mealLabel={MEALS.find(m => m.key === addFoodSheetMeal)?.label || ''}
+          onAddToMeal={food => addFoodToMeal(addFoodSheetMeal, food)}
+        />
+      </>
+    )
   }
 
   return (

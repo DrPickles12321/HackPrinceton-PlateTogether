@@ -4,7 +4,7 @@ import { useFirebaseData } from '../contexts/FirebaseDataContext'
 import AddFoodInput from './AddFoodInput'
 import { COMMON_FOODS } from '../data/commonFoods'
 
-const CATEGORIES = [
+export const CATEGORIES = [
   { key: 'familiar',   label: 'Familiar',   color: 'var(--mint)',  bg: 'var(--mint-light)',  border: 'var(--mint-mid)' },
   { key: 'working_on', label: 'Working On', color: 'var(--peach)', bg: 'var(--peach-light)', border: 'var(--peach-mid)' },
   { key: 'challenge',  label: 'Challenge',  color: 'var(--pink)',  bg: 'var(--pink-light)',  border: 'var(--pink-mid)' },
@@ -193,12 +193,13 @@ function Section({ config, foods, onDelete, onChangeCategory }) {
   )
 }
 
-function SuggestedFoods({ onAdd, existingNames }) {
+export function SuggestedFoods({ onAdd, existingNames, buttonSize = 22 }) {
   const existingLower = new Set(existingNames.map(n => n.toLowerCase()))
   const items = COMMON_FOODS
     .filter(f => !existingLower.has(f.name.toLowerCase()))
     .map(f => f.name)
     .sort((a, b) => a.localeCompare(b))
+  const dotSize = Math.round(buttonSize * 0.36)
 
   return (
     <div style={{ flex: 1, overflowY: 'auto' }}>
@@ -224,15 +225,15 @@ function SuggestedFoods({ onAdd, existingNames }) {
                   aria-label={`Add ${name} as ${cat.label}`}
                   onClick={() => onAdd({ name, category: cat.key })}
                   style={{
-                    width: 22, height: 22, borderRadius: '50%', padding: 0,
+                    width: buttonSize, height: buttonSize, borderRadius: '50%', padding: 0,
                     border: `1.5px solid ${cat.border}`, background: cat.bg,
                     cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    transition: 'transform 0.1s',
+                    transition: 'transform 0.1s', flexShrink: 0,
                   }}
                   onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.12)'}
                   onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
                 >
-                  <span style={{ width: 8, height: 8, borderRadius: '50%', background: cat.color, display: 'block' }} />
+                  <span style={{ width: dotSize, height: dotSize, borderRadius: '50%', background: cat.color, display: 'block' }} />
                 </button>
               ))}
             </div>

@@ -4,6 +4,7 @@ import { generateWeeklyInsights } from '../lib/aiInsights'
 import { getWeekIsoDates } from '../lib/insights'
 import { detectWeeklyAnomalies } from '../lib/anomalyDetection'
 import { useFirebaseData } from '../contexts/FirebaseDataContext'
+import { useIsMobile } from '../hooks/useIsMobile'
 
 const MEAL_LABELS = { breakfast: 'Breakfast', lunch: 'Lunch', snack: 'Snack', dinner: 'Dinner' }
 
@@ -184,6 +185,7 @@ function AIInsightsSection({ weekStatuses, allMealItems = {}, mealStatuses = {},
 export default function StatsView() {
   const { mealStatuses = {}, allMealItems = {} } = useOutletContext()
   const { mealTimesByDate = {} } = useFirebaseData()
+  const isMobile = useIsMobile()
 
   const thisWeekDates = useMemo(() => getWeekIsoDates(0), [])
   const lastWeekDates = useMemo(() => getWeekIsoDates(-1), [])
@@ -223,6 +225,94 @@ export default function StatsView() {
       : null,
     stats.ringPct >= 50 ? `Wow — ${stats.ringPct}% of challenge foods attempted!` : null,
   ].filter(Boolean)
+
+  if (isMobile) {
+    const pills = [
+      { label: 'Okay %',   value: `${stats.successRate}%`, color: '#E8735A',          bg: '#FDF1EE',            border: '#F5C4B4' },
+      { label: 'Logged',   value: stats.total,              color: 'var(--text-dark)', bg: 'white',              border: 'var(--border)' },
+      { label: 'Okay',     value: stats.okay,               color: 'var(--mint)',      bg: 'var(--mint-light)',  border: 'var(--mint-mid)' },
+      { label: 'Difficult',value: stats.difficult,          color: 'var(--peach)',     bg: 'var(--peach-light)', border: 'var(--peach-mid)' },
+      { label: 'Refused',  value: stats.refused,            color: 'var(--pink)',      bg: 'var(--pink-light)',  border: 'var(--pink-mid)' },
+      { label: 'Skipped',  value: stats.skipped,            color: '#8a7568',          bg: '#f1ece3',            border: '#ddd0bd' },
+    ]
+    return (
+      <div style={{ padding: '6px 14px 24px', maxWidth: 480, margin: '0 auto', width: '100%' }}>
+        <h2 className="font-lora" style={{ fontSize: 23, fontWeight: 600, color: 'var(--text-dark)', margin: '6px 0 2px', lineHeight: 1.1 }}>
+          Weekly Insights
+        </h2>
+        <p style={{ fontSize: 13, color: 'var(--text-light)', margin: '0 0 16px' }}>A gentle look at this week's progress</p>
+
+        {/* Challenge ring */}
+        <div style={{ background: 'white', borderRadius: 18, border: '1.5px solid var(--border)', padding: '22px', boxShadow: '0 2px 12px rgba(39,23,6,0.05)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, marginBottom: 12 }}>
+          <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-light)', letterSpacing: '0.7px', textTransform: 'uppercase' }}>Challenge Attempts</div>
+          <div style={{ position: 'relative' }}>
+            <svg width={96} height={96} style={{ transform: 'rotate(-90deg)' }}>
+              <circle cx={48} cy={48} r={38} fill="none" stroke="var(--border)" strokeWidth={9} />
+              <circle cx={48} cy={48} r={38} fill="none" stroke="var(--coral)" strokeWidth={9} strokeDasharray={circumference} strokeDashoffset={circumference * (1 - stats.ringPct / 100)} strokeLinecap="round" />
+            </svg>
+            <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <span style={{ fontSize: 22, fontWeight: 700, color: 'var(--coral)', lineHeight: 1 }}>{stats.ringPct}%</span>
+            </div>
+          </div>
+          <div style={{ background: 'var(--coral-light)', borderRadius: 10, padding: '6px 16px', fontSize: 12, color: 'var(--coral)', fontWeight: 600, border: '1px solid var(--coral-mid)' }}>
+            Attempted: {stats.challengeAttempts}
+          </div>
+        </div>
+
+        {/* Supportive message */}
+        <div style={{ background: 'linear-gradient(148deg, var(--peach-light) 0%, var(--pink-light) 100%)', borderRadius: 18, border: '1.5px solid var(--border)', padding: '20px', marginBottom: 12 }}>
+          <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-mid)', letterSpacing: '0.7px', textTransform: 'uppercase', marginBottom: 10 }}>Supportive Message</div>
+          <p className="font-lora" style={{ fontSize: 17, color: 'var(--text-dark)', lineHeight: 1.55, margin: '0 0 12px', fontStyle: 'italic' }}>"{messages[0]}"</p>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <span style={{ background: 'white', borderRadius: 9, padding: '4px 11px', fontSize: 12, color: 'var(--mint)', fontWeight: 600, border: '1px solid var(--mint-mid)' }}>✓ {stats.okay} okay</span>
+            {stats.difficult > 0 && (
+              <span style={{ background: 'white', borderRadius: 9, padding: '4px 11px', fontSize: 12, color: 'var(--peach)', fontWeight: 600, border: '1px solid var(--peach-mid)' }}>{stats.difficult} hard</span>
+            )}
+          </div>
+        </div>
+
+        {/* Stat pills */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginBottom: 12 }}>
+          {pills.map(s => (
+            <div key={s.label} style={{ background: s.bg, borderRadius: 16, padding: '16px 8px', border: `1.5px solid ${s.border}`, textAlign: 'center' }}>
+              <div className="font-lora" style={{ fontSize: 30, fontWeight: 400, color: s.color, lineHeight: 1, marginBottom: 5 }}>{s.value}</div>
+              <div style={{ fontSize: 11, color: 'var(--text-mid)', fontWeight: 500 }}>{s.label}</div>
+            </div>
+          ))}
+        </div>
+
+        {/* Hardest meal */}
+        <div style={{ background: 'white', borderRadius: 18, border: '1.5px solid var(--border)', padding: '20px', boxShadow: '0 2px 12px rgba(39,23,6,0.05)', marginBottom: 12 }}>
+          <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-light)', letterSpacing: '0.7px', textTransform: 'uppercase', marginBottom: 12 }}>Most Logged Difficulty</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 13, marginBottom: 12 }}>
+            <div style={{ width: 48, height: 48, borderRadius: 14, background: 'var(--pink-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, flexShrink: 0 }}>😰</div>
+            <div>
+              <div style={{ fontSize: 17, fontWeight: 700, color: 'var(--text-dark)', lineHeight: 1.2 }}>{MEAL_LABELS[stats.hardestMeal] || 'Dinner'}</div>
+              <div style={{ fontSize: 13, color: 'var(--text-mid)', marginTop: 2 }}>{stats.hardestPct}% difficult</div>
+            </div>
+          </div>
+          <div style={{ height: 7, borderRadius: 4, background: 'var(--border)', overflow: 'hidden' }}>
+            <div style={{ height: '100%', borderRadius: 4, background: 'linear-gradient(90deg, var(--pink) 0%, var(--coral) 100%)', width: `${stats.hardestPct}%`, transition: 'width 0.7s ease' }} />
+          </div>
+        </div>
+
+        {/* Weekly progress */}
+        {hasLastWeekData && (
+          <div style={{ background: 'white', borderRadius: 18, border: '1.5px solid var(--border)', padding: '20px', boxShadow: '0 2px 12px rgba(39,23,6,0.05)' }}>
+            <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-light)', letterSpacing: '0.7px', textTransform: 'uppercase', marginBottom: 14 }}>Weekly Progress</div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10 }}>
+              <ProgressStat label="Okay Meals" current={stats.successRate} previous={lastWeekStats.successRate} unit="%" />
+              <ProgressStat label="Meals Logged" current={stats.total} previous={lastWeekStats.total} />
+              <ProgressStat label="Difficult" current={stats.difficult} previous={lastWeekStats.difficult} inverse />
+              <ProgressStat label="Challenges Tried" current={stats.ringPct} previous={lastWeekStats.ringPct} unit="%" />
+            </div>
+          </div>
+        )}
+
+        <AIInsightsSection weekStatuses={thisWeekStatuses} allMealItems={allMealItems} mealStatuses={mealStatuses} mealTimesByDate={mealTimesByDate} />
+      </div>
+    )
+  }
 
   return (
     <div style={{ flex: 1, padding: '28px 32px', overflowY: 'auto' }}>

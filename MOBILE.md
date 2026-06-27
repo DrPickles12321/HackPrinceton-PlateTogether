@@ -112,21 +112,25 @@ The real issues that will break or frustrate on a phone. Fix before launch.
 
 ### Blockers (must fix)
 
-- [ ] **Replace drag-and-drop with tap-to-add.** `@dnd-kit` drag is unusable on
-      touch and fights scrolling. Affects `FoodSidebar.jsx` + `DailyView.jsx`
-      `DropZone`/`handleDragEnd`.
-- [ ] **Collapse the 3-column Daily layout to one column.** The `width: 272`
-      left/right sidebars don't fit 380px. Make Today a single scrolling column.
-- [ ] **Remove fixed widths that cause horizontal scroll.** e.g. `maxWidth:1280`,
-      `minWidth:200` on selects, `width:272` sidebars → responsive (%/flex) under
-      a mobile breakpoint.
-- [ ] **Fix iOS input zoom.** Inputs at 13px auto-zoom on focus. Bump touch
-      inputs to 16px (or `font-size:16px` on focus).
+> Done 2026-06-27 (Today screen). A `useIsMobile()` (≤768px) hook gates an
+> entirely separate single-column branch in `DailyView.jsx`; the desktop
+> `@dnd-kit` 3-column layout is untouched and still renders ≥769px. Verified in
+> browser at 375px and 1280px.
+
+- [x] **Replace drag-and-drop with tap-to-add.** New `AddFoodSheet.jsx` (bottom
+      sheet, My List / Suggested tabs) + `MobileMealCard`; desktop drag-end and
+      mobile tap both go through a shared `addFoodToMeal()` in `DailyView.jsx`.
+- [x] **Collapse the 3-column Daily layout to one column.** Mobile branch is a
+      single scrolling column (meals → supplements → progress → notes → stats).
+- [x] **Remove fixed widths that cause horizontal scroll.** Mobile branch drops
+      the `width:272`/`214` sidebars and `maxWidth:1280`; uses full-width / flex.
+- [x] **Fix iOS input zoom.** Global `@media (max-width:768px){ input,textarea,
+      select{ font-size:16px } }` in `src/index.css`.
 
 ### High priority
 
-- [ ] **Native time picker.** Replace the 3-field hour/minute/AM-PM editor in
-      `MealCard` with `<input type="time">` on mobile (current fields are <44px).
+- [x] **Native time picker.** `MobileMealCard` uses `<input type="time">`; the
+      desktop 3-field editor stays on `MealCard`.
 - [ ] **Convert floating popovers to bottom sheets.** The macro `DayPopover`
       (`WeeklyView.jsx`) uses `getBoundingClientRect` + fixed positioning and will
       overflow small screens.

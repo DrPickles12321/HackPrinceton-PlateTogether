@@ -2,6 +2,8 @@ import { useMemo, useState, useEffect, useRef, useCallback } from 'react'
 import { useOutletContext } from 'react-router-dom'
 import { lookupNutrition } from '../lib/nutritionService'
 import { getWeekDates } from '../lib/constants'
+import { useIsMobile } from '../hooks/useIsMobile'
+import BottomSheet from '../components/BottomSheet'
 
 const DAYS = [
   { key: 'mon', label: 'Mon', full: 'Monday'    },
@@ -160,7 +162,9 @@ function DayPopover({ day, macros, style, popoverRef }) {
 
 export default function WeeklyView() {
   const { mealStatuses = {}, allMealItems = {}, weekOffset = 0, setWeekOffset } = useOutletContext()
+  const isMobile = useIsMobile()
   const [openDay, setOpenDay]         = useState(null)
+  const [sheetDay, setSheetDay]       = useState(null)
   const [popoverPos, setPopoverPos]   = useState({ top: 0, left: 0 })
   const popoverRef  = useRef(null)
   const headerRefs  = useRef({})
@@ -213,6 +217,96 @@ export default function WeeklyView() {
   }, [openDay])
 
   const openDayObj = DAYS.find(d => d.key === openDay)
+
+  if (isMobile) {
+    const sheetDayObj = DAYS.find(d => d.key === sheetDay)
+    const sheetMacros = sheetDay ? macrosByDay[sheetDay] : null
+    const sheetHasData = sheetMacros && (sheetMacros.protein + sheetMacros.carbs + sheetMacros.fruitsVeggies) > 0
+
+    return (
+      <div style={{ padding: '6px 14px 24px', maxWidth: 480, margin: '0 auto', width: '100%' }}>
+        <h2 className="font-lora" style={{ fontSize: 23, fontWeight: 600, color: 'var(--text-dark)', margin: '6px 0 2px', lineHeight: 1.1 }}>
+          Week at a Glance
+        </h2>
+        <p style={{ fontSize: 13, color: 'var(--text-light)', margin: '0 0 14px' }}>Tap a day for its nutrition summary</p>
+
+        {/* Week navigator */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+          <button onClick={() => setWeekOffset(o => o - 1)} style={{ width: 36, height: 36, borderRadius: '50%', border: 'none', background: '#fff', color: 'var(--text-light)', fontSize: 17, cursor: 'pointer', boxShadow: '0 1px 4px rgba(39,23,6,0.08)' }}>‹</button>
+          <span style={{ fontSize: 13, color: weekOffset === 0 ? 'var(--coral)' : 'var(--text-light)', fontWeight: 600 }}>
+            {weekOffset === 0 ? 'This week' : weekOffset === -1 ? 'Last week' : weekOffset === 1 ? 'Next week' : (() => {
+              const mon = weekDates['mon'], sun = weekDates['sun']
+              return `${new Date(mon + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} – ${new Date(sun + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`
+            })()}
+            {weekOffset !== 0 && (
+              <button onClick={() => setWeekOffset(0)} style={{ marginLeft: 8, background: 'none', border: '1px solid var(--border-mid)', borderRadius: 6, cursor: 'pointer', color: 'var(--coral)', fontSize: 10, fontWeight: 600, padding: '2px 7px', fontFamily: 'inherit' }}>Today</button>
+            )}
+          </span>
+          <button onClick={() => setWeekOffset(o => o + 1)} style={{ width: 36, height: 36, borderRadius: '50%', border: 'none', background: '#fff', color: 'var(--text-light)', fontSize: 17, cursor: 'pointer', boxShadow: '0 1px 4px rgba(39,23,6,0.08)' }}>›</button>
+        </div>
+
+        {/* Compact grid */}
+        <div style={{ background: 'white', borderRadius: 16, border: '1.5px solid var(--border)', boxShadow: '0 2px 10px rgba(39,23,6,0.05)', overflow: 'hidden' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '28px repeat(7, 1fr)', background: 'var(--surface-warm)', borderBottom: '1.5px solid var(--border)' }}>
+            <div />
+            {DAYS.map(day => {
+              const dateIso = weekDates[day.key]
+              const isToday = dateIso === TODAY_ISO
+              const dayNum = new Date(dateIso + 'T12:00:00').getDate()
+              return (
+                <button key={day.key} onClick={() => setSheetDay(day.key)} style={{
+                  padding: '8px 1px', border: 'none', background: 'none', cursor: 'pointer',
+                  display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1, fontFamily: "'Lato', sans-serif",
+                }}>
+                  <span style={{ fontSize: 10, fontWeight: 600, color: isToday ? 'var(--coral)' : 'var(--text-mid)' }}>{day.label}</span>
+                  <span style={{ fontSize: 9, color: isToday ? 'var(--coral)' : 'var(--text-light)' }}>{dayNum}</span>
+                </button>
+              )
+            })}
+          </div>
+          {MEALS.map((meal, mi) => (
+            <div key={meal.key} style={{ display: 'grid', gridTemplateColumns: '28px repeat(7, 1fr)', borderBottom: mi < MEALS.length - 1 ? '1px solid var(--border)' : 'none' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--surface-warm)', borderRight: '1px solid var(--border)', fontSize: 14 }}>{meal.icon}</div>
+              {DAYS.map(day => {
+                const status = mealStatuses[weekDates[day.key]]?.[meal.key] || 'empty'
+                const s = STATUS_STYLE[status]
+                return (
+                  <div key={day.key} style={{ minHeight: 44, background: s.bg, borderLeft: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <span style={{ width: 10, height: 10, borderRadius: '50%', background: s.dot || 'var(--border-mid)', opacity: s.dot ? 1 : 0.4 }} />
+                  </div>
+                )
+              })}
+            </div>
+          ))}
+        </div>
+
+        {/* Legend */}
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px 14px', margin: '14px 2px 0' }}>
+          {['okay', 'difficult', 'refused', 'skipped'].map(k => (
+            <div key={k} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span style={{ width: 18, height: 12, borderRadius: 4, background: STATUS_STYLE[k].bg, border: `1.5px solid ${STATUS_STYLE[k].dot}66` }} />
+              <span style={{ fontSize: 11, color: 'var(--text-mid)' }}>{STATUS_STYLE[k].label}</span>
+            </div>
+          ))}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span style={{ width: 18, height: 12, borderRadius: 4, background: STATUS_STYLE.empty.bg, border: '1.5px dashed var(--border-mid)' }} />
+            <span style={{ fontSize: 11, color: 'var(--text-light)' }}>Not logged</span>
+          </div>
+        </div>
+
+        <BottomSheet open={!!sheetDay} onClose={() => setSheetDay(null)} title={sheetDayObj?.full || ''}>
+          <div style={{ textAlign: 'center', fontSize: 9, fontWeight: 700, color: 'var(--text-light)', letterSpacing: '0.6px', textTransform: 'uppercase', marginBottom: 12 }}>
+            Daily nutrition summary
+          </div>
+          {sheetHasData ? (
+            <MacroPie macros={sheetMacros} />
+          ) : (
+            <p style={{ fontSize: 13, color: 'var(--text-light)', textAlign: 'center', padding: '16px 0', fontStyle: 'italic' }}>No meals logged for this day</p>
+          )}
+        </BottomSheet>
+      </div>
+    )
+  }
 
   return (
     <div style={{ flex: 1, padding: '28px 32px', overflowY: 'auto', margin: '0 -24px' }}>

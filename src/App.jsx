@@ -9,6 +9,7 @@ import ParentView from './pages/ParentView'
 import DailyView from './pages/DailyView'
 import WeeklyView from './pages/WeeklyView'
 import StatsView from './pages/StatsView'
+import NotesView from './pages/NotesView'
 import ClinicianView from './pages/ClinicianView'
 
 function AppLayout() {
@@ -61,6 +62,7 @@ function AppLayout() {
           <Route path="daily" element={<DailyView />} />
           <Route path="weekly" element={<WeeklyView />} />
           <Route path="stats" element={<StatsView />} />
+          <Route path="notes" element={<NotesView />} />
         </Route>
         <Route path="/clinician" element={<ClinicianView />} />
         <Route path="*" element={<Navigate to="/" replace />} />
