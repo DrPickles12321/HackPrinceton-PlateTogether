@@ -131,22 +131,23 @@ The real issues that will break or frustrate on a phone. Fix before launch.
 
 - [x] **Native time picker.** `MobileMealCard` uses `<input type="time">`; the
       desktop 3-field editor stays on `MealCard`.
-- [ ] **Convert floating popovers to bottom sheets.** The macro `DayPopover`
-      (`WeeklyView.jsx`) uses `getBoundingClientRect` + fixed positioning and will
-      overflow small screens.
+- [x] **Convert floating popovers to bottom sheets.** Mobile `WeeklyView` taps a
+      day → `BottomSheet` macro summary instead of the fixed `DayPopover` (desktop
+      keeps the popover).
 - [ ] **Enlarge tap targets to ≥44px.** Status dots, the `⋮`/`×` on food chips,
       and the suggested-food category dots are all too small for touch.
-- [ ] **Respect safe areas.** Bottom tab bar needs `env(safe-area-inset-bottom)`
+- [x] **Respect safe areas.** Bottom tab bar needs `env(safe-area-inset-bottom)`
       padding or it sits under the iPhone home indicator.
 - [ ] **Avoid trapped nested scroll panes.** Several `overflowY:auto` + `flex:1`
       panes trap scrolling on mobile; let the page scroll naturally.
 
 ### Polish
 
-- [ ] **Week grid fit.** The grid `min-width:720px` (clinician) / parent week grid
-      should fit ~340px or scroll cleanly without breaking layout.
-- [ ] **Keyboard overlap.** Add-food / add-note bottom sheets must lift above the
-      on-screen keyboard.
+- [x] **Week grid fit.** Parent week grid has a compact mobile branch; clinician
+      `WeeklyGrid` keeps its `overflow-x-auto` wrapper. Clinician dashboard chrome
+      (header / controls / 2-col grid) is now responsive too.
+- [x] **Keyboard overlap.** `BottomSheet` lifts above the on-screen keyboard via the
+      VisualViewport API; `interactive-widget=resizes-content` added to the viewport meta.
 
 ---
 
