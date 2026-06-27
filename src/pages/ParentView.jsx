@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Outlet } from 'react-router-dom'
+import { Outlet, useLocation } from 'react-router-dom'
 import { useFirebaseData } from '../contexts/FirebaseDataContext'
 import { useIsMobile } from '../hooks/useIsMobile'
 import MobileTabBar from '../components/MobileTabBar'
@@ -7,6 +7,7 @@ import MobileTabBar from '../components/MobileTabBar'
 export default function ParentView() {
   const [weekOffset, setWeekOffset] = useState(0)
   const isMobile = useIsMobile()
+  const { pathname } = useLocation()
 
   const {
     allMealItems,
@@ -29,7 +30,7 @@ export default function ParentView() {
 
   return (
     <>
-      <div style={{ width: '100%', padding: isMobile ? '4px 0 76px' : '16px 24px' }}>
+      <div key={pathname} className="pt-rise" style={{ width: '100%', padding: isMobile ? '4px 0 76px' : '16px 24px' }}>
         <Outlet context={{ clinicianNotes, parentNotes, clinicianNotesRead, mealStatuses, savedClinicianNotes, allMealItems, weekOffset, setWeekOffset, saveParentNote, markClinicianNoteRead, saveClinicianNote, unsaveClinicianNote, clearAllSavedNotes, setMealStatus }} />
       </div>
       {isMobile && <MobileTabBar />}

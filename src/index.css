@@ -42,7 +42,14 @@
   color: var(--text-dark);
 }
 
-body { margin: 0; }
+body {
+  margin: 0;
+  background:
+    radial-gradient(circle at 14% 6%, rgba(184,85,53,0.055) 0%, transparent 38%),
+    radial-gradient(circle at 86% 94%, rgba(72,122,103,0.05) 0%, transparent 40%),
+    #F3ECE2;
+  background-attachment: fixed;
+}
 
 #root {
   width: 100%;
@@ -89,6 +96,16 @@ p { margin: 0; }
 @keyframes spin {
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
+}
+
+/* Gentle entrance for route content */
+@keyframes ptRise {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: none; }
+}
+.pt-rise { animation: ptRise 0.45s cubic-bezier(0.16, 1, 0.3, 1) both; }
+@media (prefers-reduced-motion: reduce) {
+  .pt-rise { animation: none; }
 }
 
 /* ── Clinician view scroll-reveal ──────────────────────────────────── */

@@ -6,9 +6,20 @@ import {
 import { ref, set } from 'firebase/database'
 import { auth, db } from '../firebase'
 import { useAuth } from '../contexts/AuthContext'
+import { useIsMobile } from '../hooks/useIsMobile'
+
+const INPUT_STYLE = {
+  width: '100%', padding: '12px 14px', borderRadius: 12,
+  border: '1.5px solid var(--border)',
+  background: 'white', fontSize: 14, color: 'var(--text-dark)',
+  fontFamily: "'Outfit', sans-serif",
+  outline: 'none', boxSizing: 'border-box',
+  transition: 'border-color 0.15s, box-shadow 0.15s',
+}
 
 export default function LoginScreen() {
   const { loginError, clearLoginError, setPendingRole } = useAuth()
+  const isMobile = useIsMobile()
   const [mode, setMode]         = useState('signin')
   const [role, setRole]         = useState(null)
   const [email, setEmail]       = useState('')
@@ -50,6 +61,194 @@ export default function LoginScreen() {
     }
   }
 
+  function focusRing(e) { e.target.style.borderColor = 'var(--coral)'; e.target.style.boxShadow = '0 0 0 3px rgba(184,85,53,0.12)' }
+  function blurRing(e)  { e.target.style.borderColor = 'var(--border)'; e.target.style.boxShadow = 'none' }
+
+  const heading = (
+    <div style={{ marginBottom: 28 }}>
+      <h2 className="font-lora" style={{
+        fontSize: isMobile ? 28 : 32, fontWeight: 500, color: 'var(--text-dark)',
+        letterSpacing: '-0.3px', marginBottom: 8, lineHeight: 1.15,
+      }}>
+        {mode === 'signin' ? 'Welcome back' : 'Create account'}
+      </h2>
+      <p style={{ fontSize: 14, color: 'var(--text-mid)', lineHeight: 1.6 }}>
+        {mode === 'signin'
+          ? 'Sign in to continue to Plate Together.'
+          : 'Set up your account to get started.'}
+      </p>
+    </div>
+  )
+
+  const formBlock = (
+    <>
+      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        {/* Role toggle */}
+        <div>
+          <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-mid)', letterSpacing: '0.5px', textTransform: 'uppercase', display: 'block', marginBottom: 8 }}>
+            I am a
+          </label>
+          <div style={{ display: 'flex', gap: 10 }}>
+            {['parent', 'clinician'].map(r => (
+              <button
+                key={r}
+                type="button"
+                onClick={() => { setRole(r); clearLoginError(); setError('') }}
+                style={{
+                  flex: 1, padding: '11px 0', borderRadius: 12, border: '1.5px solid',
+                  cursor: 'pointer', fontSize: 14, fontWeight: 600, minHeight: 46,
+                  fontFamily: "'Outfit', sans-serif",
+                  transition: 'all 0.15s',
+                  borderColor: role === r ? (r === 'parent' ? 'var(--coral)' : 'var(--mint)') : 'var(--border)',
+                  background: role === r
+                    ? (r === 'parent'
+                      ? 'linear-gradient(135deg, var(--coral) 0%, var(--pink) 100%)'
+                      : 'linear-gradient(135deg, var(--mint) 0%, #306050 100%)')
+                    : 'white',
+                  color: role === r ? 'white' : 'var(--text-mid)',
+                  boxShadow: role === r
+                    ? (r === 'parent' ? '0 2px 8px rgba(184,85,53,0.28)' : '0 2px 8px rgba(72,122,103,0.28)')
+                    : 'none',
+                }}
+              >
+                {r === 'parent' ? '👨‍👩‍👧 Parent' : '👩‍⚕️ Clinician'}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Email */}
+        <div>
+          <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-mid)', letterSpacing: '0.5px', textTransform: 'uppercase', display: 'block', marginBottom: 6 }}>
+            Email
+          </label>
+          <input
+            type="email"
+            value={email}
+            onChange={e => setEmail(e.target.value)}
+            required
+            placeholder="you@example.com"
+            style={INPUT_STYLE}
+            onFocus={focusRing}
+            onBlur={blurRing}
+          />
+        </div>
+
+        {/* Password */}
+        <div>
+          <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-mid)', letterSpacing: '0.5px', textTransform: 'uppercase', display: 'block', marginBottom: 6 }}>
+            Password
+          </label>
+          <input
+            type="password"
+            value={password}
+            onChange={e => setPassword(e.target.value)}
+            required
+            placeholder="••••••••"
+            style={INPUT_STYLE}
+            onFocus={focusRing}
+            onBlur={blurRing}
+          />
+        </div>
+
+        {/* Error */}
+        {displayError && (
+          <div style={{
+            background: '#FEF0EE', border: '1.5px solid #F5C4B4',
+            borderRadius: 10, padding: '12px 14px',
+            fontSize: 13, color: 'var(--coral)', lineHeight: 1.5,
+            fontWeight: 500,
+            boxShadow: '0 2px 8px rgba(184,85,53,0.12)',
+            display: 'flex', alignItems: 'flex-start', gap: 8,
+          }}>
+            <span style={{ flexShrink: 0, fontSize: 15 }}>⚠️</span>
+            {displayError}
+          </div>
+        )}
+
+        {/* Submit */}
+        <button
+          type="submit"
+          disabled={loading}
+          style={{
+            width: '100%', padding: '14px 0', borderRadius: 13, border: 'none',
+            background: loading
+              ? 'rgba(232,115,90,0.5)'
+              : 'linear-gradient(135deg, var(--coral) 0%, var(--pink) 100%)',
+            color: 'white', fontSize: 15, fontWeight: 600, minHeight: 50,
+            fontFamily: "'Outfit', sans-serif",
+            cursor: loading ? 'not-allowed' : 'pointer',
+            boxShadow: loading ? 'none' : '0 4px 14px rgba(184,85,53,0.32)',
+            transition: 'all 0.15s',
+            marginTop: 4,
+          }}
+        >
+          {loading
+            ? (mode === 'signin' ? 'Signing in…' : 'Creating account…')
+            : (mode === 'signin' ? 'Sign In' : 'Create Account')}
+        </button>
+      </form>
+
+      {/* Mode toggle */}
+      <p style={{ textAlign: 'center', fontSize: 13, color: 'var(--text-mid)', marginTop: 20 }}>
+        {mode === 'signin' ? "Don't have an account? " : 'Already have an account? '}
+        <button
+          type="button"
+          onClick={() => { setMode(mode === 'signin' ? 'register' : 'signin'); setError(''); clearLoginError() }}
+          style={{
+            background: 'none', border: 'none', cursor: 'pointer',
+            color: 'var(--coral)', fontWeight: 600, fontSize: 13,
+            fontFamily: "'Outfit', sans-serif", padding: 0,
+          }}
+        >
+          {mode === 'signin' ? 'Create account' : 'Sign in'}
+        </button>
+      </p>
+    </>
+  )
+
+  // ── Mobile: single column, compact brand header over a form card ──
+  if (isMobile) {
+    return (
+      <div style={{
+        minHeight: '100svh',
+        background: 'radial-gradient(circle at 80% 0%, rgba(184,85,53,0.10) 0%, transparent 45%), radial-gradient(circle at 0% 100%, rgba(72,122,103,0.10) 0%, transparent 45%), #F3ECE2',
+        display: 'flex', flexDirection: 'column', justifyContent: 'center',
+        padding: '32px 20px calc(28px + env(safe-area-inset-bottom))',
+        boxSizing: 'border-box',
+      }}>
+        <div style={{ width: '100%', maxWidth: 400, margin: '0 auto' }}>
+          {/* Brand */}
+          <div style={{ textAlign: 'center', marginBottom: 26 }}>
+            <div style={{
+              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+              width: 60, height: 60, borderRadius: 18, fontSize: 28,
+              background: 'linear-gradient(135deg, var(--coral) 0%, var(--pink) 100%)',
+              boxShadow: '0 6px 18px rgba(184,85,53,0.32)', marginBottom: 16,
+            }}>🍽️</div>
+            <h1 className="font-lora" style={{ fontSize: 32, fontWeight: 500, color: 'var(--text-dark)', letterSpacing: '-0.3px', lineHeight: 1.05, marginBottom: 8 }}>
+              Plate Together
+            </h1>
+            <p style={{ fontSize: 13.5, color: 'var(--text-mid)', lineHeight: 1.55, maxWidth: 280, margin: '0 auto' }}>
+              Shared meal support for families navigating eating disorder recovery.
+            </p>
+          </div>
+
+          {/* Form card */}
+          <div style={{
+            background: 'white', borderRadius: 22, padding: '26px 22px',
+            border: '1px solid var(--border)',
+            boxShadow: '0 8px 30px rgba(39,23,6,0.08)',
+          }}>
+            {heading}
+            {formBlock}
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // ── Desktop: split brand / form panels ──
   return (
     <div style={{
       minHeight: '100svh',
@@ -143,157 +342,8 @@ export default function LoginScreen() {
         }} />
 
         <div style={{ width: '100%', maxWidth: 380, position: 'relative' }}>
-          <div style={{ marginBottom: 32 }}>
-            <h2 className="font-lora" style={{
-              fontSize: 32, fontWeight: 400, color: 'var(--text-dark)',
-              letterSpacing: '-0.3px', marginBottom: 8, lineHeight: 1.15,
-            }}>
-              {mode === 'signin' ? 'Welcome back' : 'Create account'}
-            </h2>
-            <p style={{ fontSize: 14, color: 'var(--text-mid)', lineHeight: 1.6 }}>
-              {mode === 'signin'
-                ? 'Sign in to continue to Plate Together.'
-                : 'Set up your account to get started.'}
-            </p>
-          </div>
-
-          <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-
-            {/* Role toggle */}
-            <div>
-              <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-mid)', letterSpacing: '0.5px', textTransform: 'uppercase', display: 'block', marginBottom: 8 }}>
-                I am a
-              </label>
-              <div style={{ display: 'flex', gap: 10 }}>
-                {['parent', 'clinician'].map(r => (
-                  <button
-                    key={r}
-                    type="button"
-                    onClick={() => { setRole(r); clearLoginError(); setError('') }}
-                    style={{
-                      flex: 1, padding: '10px 0', borderRadius: 12, border: '1.5px solid',
-                      cursor: 'pointer', fontSize: 14, fontWeight: 600,
-                      fontFamily: "'Outfit', sans-serif",
-                      transition: 'all 0.15s',
-                      borderColor: role === r ? (r === 'parent' ? 'var(--coral)' : 'var(--mint)') : 'var(--border)',
-                      background: role === r
-                        ? (r === 'parent'
-                          ? 'linear-gradient(135deg, var(--coral) 0%, var(--pink) 100%)'
-                          : 'linear-gradient(135deg, var(--mint) 0%, #306050 100%)')
-                        : 'white',
-                      color: role === r ? 'white' : 'var(--text-mid)',
-                      boxShadow: role === r
-                        ? (r === 'parent' ? '0 2px 8px rgba(184,85,53,0.28)' : '0 2px 8px rgba(72,122,103,0.28)')
-                        : 'none',
-                    }}
-                  >
-                    {r === 'parent' ? '👨‍👩‍👧 Parent' : '👩‍⚕️ Clinician'}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Email */}
-            <div>
-              <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-mid)', letterSpacing: '0.5px', textTransform: 'uppercase', display: 'block', marginBottom: 6 }}>
-                Email
-              </label>
-              <input
-                type="email"
-                value={email}
-                onChange={e => setEmail(e.target.value)}
-                required
-                placeholder="you@example.com"
-                style={{
-                  width: '100%', padding: '11px 14px', borderRadius: 12,
-                  border: '1.5px solid var(--border)',
-                  background: 'white', fontSize: 14, color: 'var(--text-dark)',
-                  fontFamily: "'Outfit', sans-serif",
-                  outline: 'none', boxSizing: 'border-box',
-                  transition: 'border-color 0.15s',
-                }}
-                onFocus={e => e.target.style.borderColor = 'var(--coral)'}
-                onBlur={e => e.target.style.borderColor = 'var(--border)'}
-              />
-            </div>
-
-            {/* Password */}
-            <div>
-              <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-mid)', letterSpacing: '0.5px', textTransform: 'uppercase', display: 'block', marginBottom: 6 }}>
-                Password
-              </label>
-              <input
-                type="password"
-                value={password}
-                onChange={e => setPassword(e.target.value)}
-                required
-                placeholder="••••••••"
-                style={{
-                  width: '100%', padding: '11px 14px', borderRadius: 12,
-                  border: '1.5px solid var(--border)',
-                  background: 'white', fontSize: 14, color: 'var(--text-dark)',
-                  fontFamily: "'Outfit', sans-serif",
-                  outline: 'none', boxSizing: 'border-box',
-                  transition: 'border-color 0.15s',
-                }}
-                onFocus={e => e.target.style.borderColor = 'var(--coral)'}
-                onBlur={e => e.target.style.borderColor = 'var(--border)'}
-              />
-            </div>
-
-            {/* Error */}
-            {displayError && (
-              <div style={{
-                background: '#FEF0EE', border: '1.5px solid #F5C4B4',
-                borderRadius: 10, padding: '12px 14px',
-                fontSize: 13, color: 'var(--coral)', lineHeight: 1.5,
-                fontWeight: 500,
-                boxShadow: '0 2px 8px rgba(184,85,53,0.12)',
-                display: 'flex', alignItems: 'flex-start', gap: 8,
-              }}>
-                <span style={{ flexShrink: 0, fontSize: 15 }}>⚠️</span>
-                {displayError}
-              </div>
-            )}
-
-            {/* Submit */}
-            <button
-              type="submit"
-              disabled={loading}
-              style={{
-                width: '100%', padding: '13px 0', borderRadius: 13, border: 'none',
-                background: loading
-                  ? 'rgba(232,115,90,0.5)'
-                  : 'linear-gradient(135deg, var(--coral) 0%, var(--pink) 100%)',
-                color: 'white', fontSize: 15, fontWeight: 600,
-                fontFamily: "'Outfit', sans-serif",
-                cursor: loading ? 'not-allowed' : 'pointer',
-                boxShadow: loading ? 'none' : '0 4px 14px rgba(184,85,53,0.32)',
-                transition: 'all 0.15s',
-                marginTop: 4,
-              }}
-            >
-              {loading
-                ? (mode === 'signin' ? 'Signing in…' : 'Creating account…')
-                : (mode === 'signin' ? 'Sign In' : 'Create Account')}
-            </button>
-          </form>
-
-          {/* Mode toggle */}
-          <p style={{ textAlign: 'center', fontSize: 13, color: 'var(--text-mid)', marginTop: 20 }}>
-            {mode === 'signin' ? "Don't have an account? " : 'Already have an account? '}
-            <button
-              type="button"
-              onClick={() => { setMode(mode === 'signin' ? 'register' : 'signin'); setError(''); clearLoginError() }}
-              style={{
-                background: 'none', border: 'none', cursor: 'pointer',
-                color: 'var(--coral)', fontWeight: 600, fontSize: 13,
-                fontFamily: "'Outfit', sans-serif", padding: 0,
-              }}
-            >
-              {mode === 'signin' ? 'Create account' : 'Sign in'}
-            </button>
-          </p>
+          {heading}
+          {formBlock}
         </div>
       </div>
     </div>
