@@ -25,7 +25,7 @@ export default function DailyNutritionSummary({ day, loggedMealItems = {}, onClo
   }, [mealData])
 
   return (
-    <div className="fixed inset-y-0 right-0 w-96 bg-white shadow-2xl z-40 flex flex-col overflow-hidden border-l border-gray-200">
+    <div className="fixed inset-y-0 right-0 w-full sm:w-96 max-w-full bg-white shadow-2xl z-40 flex flex-col overflow-hidden border-l border-gray-200">
       <div className="flex items-center justify-between p-4 border-b border-gray-200 bg-indigo-50">
         <div>
           <h2 className="text-base font-bold text-gray-900">{DAY_LABEL[day]}</h2>

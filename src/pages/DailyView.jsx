@@ -471,10 +471,10 @@ function MobileMealCard({
                 style={{
                   display: 'inline-flex', alignItems: 'center', gap: 5,
                   background: 'var(--surface-warm)', border: '1px solid var(--border-mid)',
-                  borderRadius: 9, padding: '6px 6px 6px 11px', fontSize: 13,
+                  borderRadius: 10, padding: '8px 6px 8px 12px', fontSize: 13,
                   fontWeight: 500, color: 'var(--text-dark)', cursor: 'pointer',
                   outline: selectedFoodIndex === i ? '2px solid #E8735A' : 'none',
-                  outlineOffset: 1, minHeight: 32,
+                  outlineOffset: 1, minHeight: 40,
                 }}
               >
                 {food.status && (
@@ -487,10 +487,12 @@ function MobileMealCard({
                 {food.name}
                 <button
                   onClick={e => { e.stopPropagation(); onRemove(i) }}
+                  aria-label={`Remove ${food.name}`}
                   style={{
+                    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
                     background: 'none', border: 'none', cursor: 'pointer',
-                    color: 'var(--text-light)', fontSize: 17, lineHeight: 1,
-                    padding: '2px 3px', fontFamily: 'inherit', minWidth: 26, minHeight: 26,
+                    color: 'var(--text-light)', fontSize: 18, lineHeight: 1,
+                    padding: 0, fontFamily: 'inherit', minWidth: 32, minHeight: 32,
                   }}
                 >×</button>
               </span>
@@ -518,11 +520,11 @@ function MobileMealCard({
                     key={opt.key}
                     onClick={() => onFoodStatusSet(meal.key, selectedFoodIndex, isSelected ? null : opt.key)}
                     style={{
-                      padding: '8px 12px', borderRadius: 9, border: 'none',
+                      padding: '11px 16px', borderRadius: 10, border: 'none',
                       outline: isSelected ? `2px solid ${opt.color}` : '1px solid var(--border)',
                       background: isSelected ? 'white' : 'white',
-                      color: opt.color, fontSize: 12, fontWeight: 600,
-                      cursor: 'pointer', minHeight: 36, fontFamily: "'Outfit', sans-serif",
+                      color: opt.color, fontSize: 13, fontWeight: 600,
+                      cursor: 'pointer', minHeight: 44, fontFamily: "'Outfit', sans-serif",
                     }}
                   >{opt.label}</button>
                 )
