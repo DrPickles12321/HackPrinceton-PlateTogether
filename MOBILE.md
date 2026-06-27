@@ -134,8 +134,9 @@ The real issues that will break or frustrate on a phone. Fix before launch.
 - [x] **Convert floating popovers to bottom sheets.** Mobile `WeeklyView` taps a
       day → `BottomSheet` macro summary instead of the fixed `DayPopover` (desktop
       keeps the popover).
-- [ ] **Enlarge tap targets to ≥44px.** Status dots, the `⋮`/`×` on food chips,
-      and the suggested-food category dots are all too small for touch.
+- [x] **Enlarge tap targets to ≥44px.** Mobile food chips ~40px, `×` remove 32px,
+      per-food + meal status buttons 44–48px, suggested dots 40px in the add-food
+      sheet. (Desktop `FoodSidebar` `⋮`/`×` left small — mouse-only, not rendered on mobile.)
 - [x] **Respect safe areas.** Bottom tab bar needs `env(safe-area-inset-bottom)`
       padding or it sits under the iPhone home indicator.
 - [ ] **Avoid trapped nested scroll panes.** Several `overflowY:auto` + `flex:1`
