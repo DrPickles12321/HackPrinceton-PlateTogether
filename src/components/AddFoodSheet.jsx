@@ -27,7 +27,9 @@ function buildSections(foods, sortMode) {
     return [{ label: null, foods: [...foods].sort(byName) }]
   }
   if (sortMode === 'group') {
-    const withZone = foods.map(f => ({ ...f, _zone: lookupNutrition(f.name, f.category).plate_zone || 'mixed' }))
+    // Prefer the USDA-enriched group persisted on the food; fall back to the
+    // local nutrition DB's plate_zone for foods added before enrichment.
+    const withZone = foods.map(f => ({ ...f, _zone: f.group || lookupNutrition(f.name, f.category).plate_zone || 'mixed' }))
     return GROUP_ORDER
       .map(z => ({ label: GROUP_LABEL[z], foods: withZone.filter(f => f._zone === z).sort(byName) }))
       .filter(s => s.foods.length > 0)

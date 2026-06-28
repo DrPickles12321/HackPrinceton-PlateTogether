@@ -17,6 +17,45 @@ function json(body, status = 200) {
   })
 }
 
+// Map a USDA FoodData Central foodCategory to our coarse food group, matching
+// the plate_zone values used by the local nutrition data (grain/produce/
+// protein/dairy/mixed).
+function mapCategoryToGroup(cat) {
+  const c = (typeof cat === 'string' ? cat : cat?.description || '').toLowerCase()
+  if (!c) return 'mixed'
+  if (c.includes('fruit')) return 'produce'
+  if (c.includes('vegetable')) return 'produce'
+  if (c.includes('grain') || c.includes('pasta') || c.includes('bread') || c.includes('baked') || c.includes('cereal')) return 'grain'
+  if (c.includes('dairy') || c.includes('egg')) return 'dairy'
+  if (/poultry|beef|pork|lamb|veal|sausage|luncheon|fish|shellfish|legume|nut|seed|meat/.test(c)) return 'protein'
+  return 'mixed'
+}
+
+async function handleFoodSearch(query, env) {
+  if (!env.USDA_API_KEY) return json({ error: 'USDA not configured' }, 503)
+  const u = new URL('https://api.nal.usda.gov/fdc/v1/foods/search')
+  u.searchParams.set('api_key', env.USDA_API_KEY)
+  u.searchParams.set('query', query)
+  u.searchParams.set('pageSize', '1')
+  u.searchParams.set('dataType', 'Foundation,SR Legacy,Survey (FNDDS)')
+  let r
+  try {
+    r = await fetch(u.toString())
+  } catch (err) {
+    console.error('USDA fetch failed:', err.message)
+    return json({ matched: null, group: null })
+  }
+  if (!r.ok) return json({ error: `USDA API ${r.status}` }, 502)
+  const data = await r.json()
+  const food = data.foods?.[0]
+  if (!food) return json({ matched: null, group: null })
+  return json({
+    matched: food.description || null,
+    foodCategory: food.foodCategory || null,
+    group: mapCategoryToGroup(food.foodCategory),
+  })
+}
+
 export default {
   async fetch(request, env) {
     if (request.method === 'OPTIONS') {
@@ -53,6 +92,11 @@ export default {
       body = await request.json()
     } catch {
       return json({ error: 'Invalid JSON body' }, 400)
+    }
+
+    // USDA food-group lookup: { query: "<food name>" }
+    if (typeof body?.query === 'string' && body.query.trim()) {
+      return handleFoodSearch(body.query.trim().slice(0, 200), env)
     }
 
     const prompt = body?.prompt
