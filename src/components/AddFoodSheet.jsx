@@ -3,11 +3,62 @@ import BottomSheet from './BottomSheet'
 import AddFoodInput from './AddFoodInput'
 import { SuggestedFoods } from './FoodSidebar'
 import { useFirebaseData } from '../contexts/FirebaseDataContext'
+import { lookupNutrition } from '../lib/nutritionService'
 
 const CAT_DOT = { familiar: 'var(--mint)', working_on: 'var(--peach)', challenge: 'var(--pink)' }
-const CAT_ORDER = { familiar: 0, working_on: 1, challenge: 2 }
 
-function MyFoodsPicker({ foods, inMealIds, onTap }) {
+const CAT_ORDER = ['familiar', 'working_on', 'challenge']
+const CAT_LABEL = { familiar: 'Familiar', working_on: 'Working on', challenge: 'Challenge' }
+
+const GROUP_ORDER = ['grain', 'produce', 'protein', 'dairy', 'mixed']
+const GROUP_LABEL = { grain: 'Grains', produce: 'Fruits & veggies', protein: 'Protein', dairy: 'Dairy', mixed: 'Other' }
+
+const SORT_OPTIONS = [
+  { key: 'category', label: 'Category' },
+  { key: 'name', label: 'Name' },
+  { key: 'group', label: 'Food group' },
+]
+
+const byName = (a, b) => a.name.localeCompare(b.name)
+
+// Build the section list (each { label, foods }) for the chosen sort mode.
+function buildSections(foods, sortMode) {
+  if (sortMode === 'name') {
+    return [{ label: null, foods: [...foods].sort(byName) }]
+  }
+  if (sortMode === 'group') {
+    const withZone = foods.map(f => ({ ...f, _zone: lookupNutrition(f.name, f.category).plate_zone || 'mixed' }))
+    return GROUP_ORDER
+      .map(z => ({ label: GROUP_LABEL[z], foods: withZone.filter(f => f._zone === z).sort(byName) }))
+      .filter(s => s.foods.length > 0)
+  }
+  // category (default)
+  return CAT_ORDER
+    .map(c => ({ label: CAT_LABEL[c], foods: foods.filter(f => f.category === c).sort(byName) }))
+    .filter(s => s.foods.length > 0)
+}
+
+function FoodRow({ food, added, onTap }) {
+  return (
+    <button
+      onClick={() => onTap(food)}
+      style={{
+        display: 'flex', alignItems: 'center', gap: 9,
+        background: added ? 'var(--mint-light)' : 'white',
+        border: `1.5px solid ${added ? 'var(--mint-mid)' : 'var(--border)'}`,
+        borderRadius: 12, padding: '11px 12px', minHeight: 46,
+        textAlign: 'left', cursor: 'pointer', fontFamily: "'Outfit', sans-serif",
+        width: '100%', transition: 'background 0.12s, border-color 0.12s',
+      }}
+    >
+      <span style={{ width: 9, height: 9, borderRadius: '50%', flexShrink: 0, background: CAT_DOT[food.category] }} />
+      <span style={{ fontSize: 14, color: 'var(--text-dark)', flex: 1 }}>{food.name}</span>
+      {added && <span style={{ fontSize: 15, color: 'var(--mint)', fontWeight: 700, flexShrink: 0 }}>✓</span>}
+    </button>
+  )
+}
+
+function MyFoodsPicker({ foods, sortMode, inMealIds, onTap }) {
   if (foods.length === 0) {
     return (
       <p style={{ fontSize: 12, color: 'var(--text-light)', fontStyle: 'italic', padding: '4px 2px' }}>
@@ -15,29 +66,22 @@ function MyFoodsPicker({ foods, inMealIds, onTap }) {
       </p>
     )
   }
+  const sections = buildSections(foods, sortMode)
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-      {foods.map(food => {
-        const added = inMealIds.has(food.id)
-        return (
-          <button
-            key={food.id}
-            onClick={() => onTap(food)}
-            style={{
-              display: 'flex', alignItems: 'center', gap: 9,
-              background: added ? 'var(--mint-light)' : 'white',
-              border: `1.5px solid ${added ? 'var(--mint-mid)' : 'var(--border)'}`,
-              borderRadius: 12, padding: '11px 12px', minHeight: 46,
-              textAlign: 'left', cursor: 'pointer', fontFamily: "'Outfit', sans-serif",
-              width: '100%', transition: 'background 0.12s, border-color 0.12s',
-            }}
-          >
-            <span style={{ width: 9, height: 9, borderRadius: '50%', flexShrink: 0, background: CAT_DOT[food.category] }} />
-            <span style={{ fontSize: 14, color: 'var(--text-dark)', flex: 1 }}>{food.name}</span>
-            {added && <span style={{ fontSize: 15, color: 'var(--mint)', fontWeight: 700, flexShrink: 0 }}>✓</span>}
-          </button>
-        )
-      })}
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      {sections.map((section, si) => (
+        <div key={section.label || `s${si}`} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          {section.label && (
+            <div style={{
+              fontSize: 10, fontWeight: 700, color: 'var(--text-light)',
+              letterSpacing: '0.7px', textTransform: 'uppercase', padding: '2px 2px 0',
+            }}>{section.label}</div>
+          )}
+          {section.foods.map(food => (
+            <FoodRow key={food.id} food={food} added={inMealIds.has(food.id)} onTap={onTap} />
+          ))}
+        </div>
+      ))}
     </div>
   )
 }
@@ -45,6 +89,7 @@ function MyFoodsPicker({ foods, inMealIds, onTap }) {
 export default function AddFoodSheet({ open, onClose, mealLabel, mealItems = [], onAddToMeal, onRemoveFromMeal }) {
   const { foodItems, addFoodItem } = useFirebaseData()
   const [tab, setTab] = useState('mine')
+  const [sortMode, setSortMode] = useState('category')
 
   const inMealIds = new Set(mealItems.map(f => f.id))
 
@@ -59,9 +104,6 @@ export default function AddFoodSheet({ open, onClose, mealLabel, mealItems = [],
   }
 
   const existingNames = foodItems.map(f => f.name)
-  const sortedFoods = [...foodItems].sort(
-    (a, b) => (CAT_ORDER[a.category] ?? 9) - (CAT_ORDER[b.category] ?? 9) || a.name.localeCompare(b.name)
-  )
 
   return (
     <BottomSheet
@@ -108,7 +150,36 @@ export default function AddFoodSheet({ open, onClose, mealLabel, mealItems = [],
               foods appear in the list below it. */}
           <AddFoodInput onAddFood={handleAddNewOrSuggested} existingFoodNames={existingNames} />
           <div style={{ height: 1, background: 'var(--border)', margin: '14px 0' }} />
-          <MyFoodsPicker foods={sortedFoods} inMealIds={inMealIds} onTap={toggle} />
+
+          {foodItems.length > 0 && (
+            <div style={{ marginBottom: 12 }}>
+              <div style={{
+                fontSize: 10, fontWeight: 700, color: 'var(--text-light)',
+                letterSpacing: '0.7px', textTransform: 'uppercase', marginBottom: 6,
+              }}>Sort by</div>
+              <div style={{ display: 'flex', gap: 5 }}>
+                {SORT_OPTIONS.map(opt => {
+                  const active = sortMode === opt.key
+                  return (
+                    <button
+                      key={opt.key}
+                      onClick={() => setSortMode(opt.key)}
+                      style={{
+                        flex: 1, padding: '7px 4px', borderRadius: 9, minHeight: 36,
+                        fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                        border: `1.5px solid ${active ? 'var(--coral)' : 'var(--border)'}`,
+                        background: active ? 'var(--coral-light)' : 'white',
+                        color: active ? 'var(--coral)' : 'var(--text-light)',
+                        fontFamily: "'Outfit', sans-serif", transition: 'all 0.15s',
+                      }}
+                    >{opt.label}</button>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+
+          <MyFoodsPicker foods={foodItems} sortMode={sortMode} inMealIds={inMealIds} onTap={toggle} />
         </>
       ) : (
         <SuggestedFoods onAdd={handleAddNewOrSuggested} existingNames={existingNames} buttonSize={40} />
