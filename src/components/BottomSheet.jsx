@@ -1,50 +1,18 @@
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 
+// Deliberately simple + robust. No JS viewport math (it proved fragile on iOS
+// Safari and could push the panel off-screen). Standard fixed bottom sheet:
+// anchored to the bottom, capped at 85dvh, with its own internal scroll. The
+// add-food input is placed at the TOP of the sheet content so it stays visible
+// above the keyboard without any positioning tricks.
 export default function BottomSheet({ open, onClose, title, children, footer }) {
-  // Lift the sheet above the on-screen keyboard using the VisualViewport API,
-  // so inputs inside the sheet stay visible while typing on mobile.
-  const [kb, setKb] = useState({ inset: 0, vh: 0 })
-
   useEffect(() => {
     if (!open) return
     function onKeyDown(e) { if (e.key === 'Escape') onClose() }
     document.addEventListener('keydown', onKeyDown)
     return () => document.removeEventListener('keydown', onKeyDown)
   }, [open, onClose])
-
-  useEffect(() => {
-    const vv = typeof window !== 'undefined' ? window.visualViewport : null
-    if (!open || !vv) return
-    const update = () => setKb({
-      inset: Math.max(0, window.innerHeight - vv.height - vv.offsetTop),
-      vh: vv.height,
-    })
-    update()
-    vv.addEventListener('resize', update)
-    vv.addEventListener('scroll', update)
-    return () => {
-      vv.removeEventListener('resize', update)
-      vv.removeEventListener('scroll', update)
-      setKb({ inset: 0, vh: 0 })
-    }
-  }, [open])
-
-  // Prevent the page behind from scrolling while the sheet is open. Use plain
-  // overflow:hidden (no position changes) so it never disturbs the sheet's own
-  // fixed positioning / VisualViewport math.
-  useEffect(() => {
-    if (!open) return
-    const html = document.documentElement
-    const prevHtml = html.style.overflow
-    const prevBody = document.body.style.overflow
-    html.style.overflow = 'hidden'
-    document.body.style.overflow = 'hidden'
-    return () => {
-      html.style.overflow = prevHtml
-      document.body.style.overflow = prevBody
-    }
-  }, [open])
 
   return (
     <AnimatePresence>
@@ -69,12 +37,11 @@ export default function BottomSheet({ open, onClose, title, children, footer }) 
             exit={{ y: '100%' }}
             transition={{ type: 'spring', stiffness: 380, damping: 32 }}
             style={{
-              position: 'fixed', left: 0, right: 0, bottom: kb.inset, zIndex: 61,
+              position: 'fixed', left: 0, right: 0, bottom: 0, zIndex: 61,
               background: 'white', borderRadius: '20px 20px 0 0',
               boxShadow: '0 -8px 30px rgba(39,23,6,0.18)',
-              maxHeight: kb.vh > 0 ? `${Math.round(kb.vh * 0.9)}px` : '85dvh',
-              display: 'flex', flexDirection: 'column',
-              paddingBottom: kb.inset > 0 ? 0 : 'env(safe-area-inset-bottom)',
+              maxHeight: '85dvh', display: 'flex', flexDirection: 'column',
+              paddingBottom: 'env(safe-area-inset-bottom)',
             }}
           >
             <div style={{ display: 'flex', justifyContent: 'center', padding: '10px 0 4px', flexShrink: 0 }}>
