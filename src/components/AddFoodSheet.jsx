@@ -15,8 +15,8 @@ const GROUP_LABEL = { grain: 'Grains', produce: 'Fruits & veggies', protein: 'Pr
 
 const SORT_OPTIONS = [
   { key: 'category', label: 'Category' },
-  { key: 'name', label: 'Name' },
   { key: 'group', label: 'Food group' },
+  { key: 'name', label: 'Name' },
 ]
 
 const byName = (a, b) => a.name.localeCompare(b.name)
