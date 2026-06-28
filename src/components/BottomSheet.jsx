@@ -30,25 +30,19 @@ export default function BottomSheet({ open, onClose, title, children, footer }) 
     }
   }, [open])
 
-  // Lock the background from scrolling while the sheet is open, so tapping
-  // items inside the sheet never "teleports" the page underneath (iOS Safari).
+  // Prevent the page behind from scrolling while the sheet is open. Use plain
+  // overflow:hidden (no position changes) so it never disturbs the sheet's own
+  // fixed positioning / VisualViewport math.
   useEffect(() => {
     if (!open) return
-    const body = document.body
-    const scrollY = window.scrollY
-    const prev = { position: body.style.position, top: body.style.top, left: body.style.left, right: body.style.right, width: body.style.width }
-    body.style.position = 'fixed'
-    body.style.top = `-${scrollY}px`
-    body.style.left = '0'
-    body.style.right = '0'
-    body.style.width = '100%'
+    const html = document.documentElement
+    const prevHtml = html.style.overflow
+    const prevBody = document.body.style.overflow
+    html.style.overflow = 'hidden'
+    document.body.style.overflow = 'hidden'
     return () => {
-      body.style.position = prev.position
-      body.style.top = prev.top
-      body.style.left = prev.left
-      body.style.right = prev.right
-      body.style.width = prev.width
-      window.scrollTo(0, scrollY)
+      html.style.overflow = prevHtml
+      document.body.style.overflow = prevBody
     }
   }, [open])
 
@@ -109,7 +103,7 @@ export default function BottomSheet({ open, onClose, title, children, footer }) 
               </div>
             )}
 
-            <div style={{ flex: 1, overflowY: 'auto', padding: '14px 18px', WebkitOverflowScrolling: 'touch' }}>
+            <div style={{ flex: 1, overflowY: 'auto', overscrollBehavior: 'contain', padding: '14px 18px', WebkitOverflowScrolling: 'touch' }}>
               {children}
             </div>
 
