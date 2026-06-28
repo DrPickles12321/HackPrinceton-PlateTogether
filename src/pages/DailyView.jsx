@@ -579,8 +579,21 @@ function MobileMealCard({
 function MobileSupplements({ checkedSupplements, onToggleChecked, prescribedSupplements }) {
   const [open, setOpen] = useState(false)
   const total = prescribedSupplements.length
-  if (total === 0) return null
   const done = prescribedSupplements.filter(n => checkedSupplements.has(n)).length
+
+  // When nothing is prescribed yet, still show the section (matches desktop)
+  // rather than hiding supplements entirely.
+  if (total === 0) {
+    return (
+      <div style={{ marginTop: 14 }}>
+        <SupplementChecklist
+          checkedSupplements={checkedSupplements}
+          onToggleChecked={onToggleChecked}
+          prescribedSupplements={prescribedSupplements}
+        />
+      </div>
+    )
+  }
 
   return (
     <div style={{ marginTop: 14 }}>
@@ -1164,6 +1177,12 @@ export default function DailyView() {
     }
   }
 
+  function removeFoodFromMeal(mealType, food) {
+    const current = { ...EMPTY_MEAL_ITEMS, ...(allMealItems[selectedDate] || {}) }
+    const idx = (current[mealType] || []).findIndex(f => f.id === food.id)
+    if (idx !== -1) removeItem(mealType, idx)
+  }
+
   function handleDragEnd(event) {
     const { active, over } = event
     setActiveDrag(null)
@@ -1318,7 +1337,9 @@ export default function DailyView() {
           open={addFoodSheetMeal != null}
           onClose={() => setAddFoodSheetMeal(null)}
           mealLabel={MEALS.find(m => m.key === addFoodSheetMeal)?.label || ''}
+          mealItems={mealItems[addFoodSheetMeal] || []}
           onAddToMeal={food => addFoodToMeal(addFoodSheetMeal, food)}
+          onRemoveFromMeal={food => removeFoodFromMeal(addFoodSheetMeal, food)}
         />
       </>
     )

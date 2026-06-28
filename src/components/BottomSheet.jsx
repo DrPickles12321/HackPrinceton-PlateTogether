@@ -30,6 +30,28 @@ export default function BottomSheet({ open, onClose, title, children, footer }) 
     }
   }, [open])
 
+  // Lock the background from scrolling while the sheet is open, so tapping
+  // items inside the sheet never "teleports" the page underneath (iOS Safari).
+  useEffect(() => {
+    if (!open) return
+    const body = document.body
+    const scrollY = window.scrollY
+    const prev = { position: body.style.position, top: body.style.top, left: body.style.left, right: body.style.right, width: body.style.width }
+    body.style.position = 'fixed'
+    body.style.top = `-${scrollY}px`
+    body.style.left = '0'
+    body.style.right = '0'
+    body.style.width = '100%'
+    return () => {
+      body.style.position = prev.position
+      body.style.top = prev.top
+      body.style.left = prev.left
+      body.style.right = prev.right
+      body.style.width = prev.width
+      window.scrollTo(0, scrollY)
+    }
+  }, [open])
+
   return (
     <AnimatePresence>
       {open && (
@@ -56,7 +78,7 @@ export default function BottomSheet({ open, onClose, title, children, footer }) 
               position: 'fixed', left: 0, right: 0, bottom: kb.inset, zIndex: 61,
               background: 'white', borderRadius: '20px 20px 0 0',
               boxShadow: '0 -8px 30px rgba(39,23,6,0.18)',
-              maxHeight: kb.inset > 0 ? `${Math.round(kb.vh * 0.94)}px` : '85vh',
+              maxHeight: kb.vh > 0 ? `${Math.round(kb.vh * 0.9)}px` : '85dvh',
               display: 'flex', flexDirection: 'column',
               paddingBottom: kb.inset > 0 ? 0 : 'env(safe-area-inset-bottom)',
             }}

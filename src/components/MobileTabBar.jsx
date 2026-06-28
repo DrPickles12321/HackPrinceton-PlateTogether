@@ -17,7 +17,7 @@ export default function MobileTabBar() {
       backdropFilter: 'blur(12px)',
       borderTop: '1px solid var(--border)',
       display: 'flex',
-      paddingBottom: 'env(safe-area-inset-bottom)',
+      paddingBottom: 'calc(env(safe-area-inset-bottom) + 6px)',
     }}>
       {TABS.map(tab => {
         const isActive = pathname === tab.to || pathname.startsWith(tab.to + '/')
