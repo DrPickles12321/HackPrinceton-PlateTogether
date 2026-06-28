@@ -50,6 +50,20 @@ const RING_NUTRIENTS = [
 
 const EMPTY_MEAL_ITEMS = { breakfast: [], lunch: [], snack: [], dinner: [] }
 
+// Keep the drag preview centered on the cursor (instead of dnd-kit's default
+// of preserving the grab offset, which makes the label float above the mouse).
+function snapCenterToCursor({ activatorEvent, draggingNodeRect, transform }) {
+  if (!draggingNodeRect || !activatorEvent) return transform
+  const x = activatorEvent.clientX
+  const y = activatorEvent.clientY
+  if (typeof x !== 'number' || typeof y !== 'number') return transform
+  return {
+    ...transform,
+    x: transform.x + x - draggingNodeRect.left - draggingNodeRect.width / 2,
+    y: transform.y + y - draggingNodeRect.top - draggingNodeRect.height / 2,
+  }
+}
+
 function getTodayKey() {
   const days = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat']
   return days[new Date().getDay()]
@@ -1544,7 +1558,7 @@ export default function DailyView() {
         </aside>
       </div>
 
-      <DragOverlay dropAnimation={{ duration: 150, easing: 'ease-out' }}>
+      <DragOverlay modifiers={[snapCenterToCursor]} dropAnimation={{ duration: 180, easing: 'cubic-bezier(0.18, 0.67, 0.6, 1.22)' }}>
         {activeDrag ? <FoodCardPreview name={activeDrag.name} category={activeDrag.category} floating /> : null}
       </DragOverlay>
     </DndContext>

@@ -349,6 +349,18 @@ export function FirebaseDataProvider({ children }) {
     setFoodItems(prev => prev.filter(f => f.id !== id))
   }
 
+  // Manually entered nutrition override for a food (overrides the estimated
+  // values from the local DB). Pass null/use reset to clear it.
+  function setFoodNutrition(id, nutrition) {
+    if (!uid) return
+    update(ref(db, `users/${uid}/foodItems/${id}`), { nutrition })
+  }
+
+  function resetFoodNutrition(id) {
+    if (!uid) return
+    update(ref(db, `users/${uid}/foodItems/${id}`), { nutrition: null })
+  }
+
   function updateFoodItemCategory(id, category) {
     if (!uid) return
     set(ref(db, `users/${uid}/foodItems/${id}/category`), category)
@@ -446,6 +458,8 @@ export function FirebaseDataProvider({ children }) {
       addFoodItem,
       deleteFoodItem,
       updateFoodItemCategory,
+      setFoodNutrition,
+      resetFoodNutrition,
     }}>
       {children}
     </FirebaseDataContext.Provider>

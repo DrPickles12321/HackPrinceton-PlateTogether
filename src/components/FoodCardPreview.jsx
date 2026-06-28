@@ -13,10 +13,11 @@ export default function FoodCardPreview({ name, category, floating = false }) {
       padding: '9px 15px', fontSize: 13, fontWeight: 500,
       color: 'var(--text-dark)',
       boxShadow: floating
-        ? '0 14px 36px rgba(39,23,6,0.20)'
+        ? '0 10px 28px rgba(39,23,6,0.18)'
         : '0 2px 8px rgba(39,23,6,0.08)',
-      transform: floating ? 'rotate(2deg) scale(1.04)' : 'none',
+      transform: floating ? 'scale(1.03)' : 'none',
       cursor: floating ? 'grabbing' : 'default',
+      pointerEvents: 'none',
       display: 'inline-block', whiteSpace: 'nowrap',
       border: `1.5px solid ${s.accent}30`,
       fontFamily: "'Outfit', sans-serif",

@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react'
 
-export default function Modal({ isOpen, onClose, title, children }) {
+export default function Modal({ isOpen, onClose, title, children, zIndex = 50 }) {
   const closeBtnRef = useRef(null)
 
   useEffect(() => {
@@ -17,7 +17,7 @@ export default function Modal({ isOpen, onClose, title, children }) {
   return (
     <div
       style={{
-        position: 'fixed', inset: 0, zIndex: 50,
+        position: 'fixed', inset: 0, zIndex,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         background: 'rgba(39,23,6,0.38)', padding: 16,
         backdropFilter: 'blur(4px)',

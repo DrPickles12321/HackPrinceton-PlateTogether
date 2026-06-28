@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import BottomSheet from './BottomSheet'
 import AddFoodInput from './AddFoodInput'
+import Modal from './Modal'
+import NutritionFacts from './NutritionFacts'
 import { SuggestedFoods } from './FoodSidebar'
 import { useFirebaseData } from '../contexts/FirebaseDataContext'
 import { lookupNutrition } from '../lib/nutritionService'
@@ -40,27 +42,40 @@ function buildSections(foods, sortMode) {
     .filter(s => s.foods.length > 0)
 }
 
-function FoodRow({ food, added, onTap }) {
+function FoodRow({ food, added, onTap, onInfo }) {
   return (
-    <button
-      onClick={() => onTap(food)}
-      style={{
-        display: 'flex', alignItems: 'center', gap: 9,
-        background: added ? 'var(--mint-light)' : 'white',
-        border: `1.5px solid ${added ? 'var(--mint-mid)' : 'var(--border)'}`,
-        borderRadius: 12, padding: '11px 12px', minHeight: 46,
-        textAlign: 'left', cursor: 'pointer', fontFamily: "'Outfit', sans-serif",
-        width: '100%', transition: 'background 0.12s, border-color 0.12s',
-      }}
-    >
-      <span style={{ width: 9, height: 9, borderRadius: '50%', flexShrink: 0, background: CAT_DOT[food.category] }} />
-      <span style={{ fontSize: 14, color: 'var(--text-dark)', flex: 1 }}>{food.name}</span>
-      {added && <span style={{ fontSize: 15, color: 'var(--mint)', fontWeight: 700, flexShrink: 0 }}>✓</span>}
-    </button>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+      <button
+        onClick={() => onTap(food)}
+        style={{
+          display: 'flex', alignItems: 'center', gap: 9, flex: 1, minWidth: 0,
+          background: added ? 'var(--mint-light)' : 'white',
+          border: `1.5px solid ${added ? 'var(--mint-mid)' : 'var(--border)'}`,
+          borderRadius: 12, padding: '11px 12px', minHeight: 46,
+          textAlign: 'left', cursor: 'pointer', fontFamily: "'Outfit', sans-serif",
+          transition: 'background 0.12s, border-color 0.12s',
+        }}
+      >
+        <span style={{ width: 9, height: 9, borderRadius: '50%', flexShrink: 0, background: CAT_DOT[food.category] }} />
+        <span style={{ fontSize: 14, color: 'var(--text-dark)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{food.name}</span>
+        {added && <span style={{ fontSize: 15, color: 'var(--mint)', fontWeight: 700, flexShrink: 0 }}>✓</span>}
+      </button>
+      <button
+        onClick={() => onInfo(food)}
+        aria-label={`Nutrition facts for ${food.name}`}
+        style={{
+          flexShrink: 0, width: 44, minHeight: 46, borderRadius: 12,
+          border: '1.5px solid var(--border)', background: 'white',
+          color: 'var(--text-light)', fontSize: 17, cursor: 'pointer',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          fontFamily: 'Georgia, serif', fontStyle: 'italic', fontWeight: 700,
+        }}
+      >i</button>
+    </div>
   )
 }
 
-function MyFoodsPicker({ foods, sortMode, inMealIds, onTap }) {
+function MyFoodsPicker({ foods, sortMode, inMealIds, onTap, onInfo }) {
   if (foods.length === 0) {
     return (
       <p style={{ fontSize: 12, color: 'var(--text-light)', fontStyle: 'italic', padding: '4px 2px' }}>
@@ -80,7 +95,7 @@ function MyFoodsPicker({ foods, sortMode, inMealIds, onTap }) {
             }}>{section.label}</div>
           )}
           {section.foods.map(food => (
-            <FoodRow key={food.id} food={food} added={inMealIds.has(food.id)} onTap={onTap} />
+            <FoodRow key={food.id} food={food} added={inMealIds.has(food.id)} onTap={onTap} onInfo={onInfo} />
           ))}
         </div>
       ))}
@@ -89,9 +104,13 @@ function MyFoodsPicker({ foods, sortMode, inMealIds, onTap }) {
 }
 
 export default function AddFoodSheet({ open, onClose, mealLabel, mealItems = [], onAddToMeal, onRemoveFromMeal }) {
-  const { foodItems, addFoodItem } = useFirebaseData()
+  const { foodItems, addFoodItem, setFoodNutrition, resetFoodNutrition } = useFirebaseData()
   const [tab, setTab] = useState('mine')
   const [sortMode, setSortMode] = useState('category')
+  const [factsFood, setFactsFood] = useState(null)
+
+  // Keep the facts modal bound to the live food record (so edits/reset reflect).
+  const factsLive = factsFood ? foodItems.find(f => f.id === factsFood.id) || factsFood : null
 
   const inMealIds = new Set(mealItems.map(f => f.id))
 
@@ -108,6 +127,7 @@ export default function AddFoodSheet({ open, onClose, mealLabel, mealItems = [],
   const existingNames = foodItems.map(f => f.name)
 
   return (
+    <>
     <BottomSheet
       open={open}
       onClose={onClose}
@@ -181,11 +201,23 @@ export default function AddFoodSheet({ open, onClose, mealLabel, mealItems = [],
             </div>
           )}
 
-          <MyFoodsPicker foods={foodItems} sortMode={sortMode} inMealIds={inMealIds} onTap={toggle} />
+          <MyFoodsPicker foods={foodItems} sortMode={sortMode} inMealIds={inMealIds} onTap={toggle} onInfo={setFactsFood} />
         </>
       ) : (
         <SuggestedFoods onAdd={handleAddNewOrSuggested} existingNames={existingNames} buttonSize={40} />
       )}
     </BottomSheet>
+
+    {/* Rendered as a sibling (not inside the transformed sheet) and above it */}
+    <Modal isOpen={!!factsLive} onClose={() => setFactsFood(null)} title={factsLive ? `Nutrition · ${factsLive.name}` : ''} zIndex={70}>
+      {factsLive && (
+        <NutritionFacts
+          food={factsLive}
+          onSave={nutrition => setFoodNutrition(factsLive.id, nutrition)}
+          onReset={() => resetFoodNutrition(factsLive.id)}
+        />
+      )}
+    </Modal>
+    </>
   )
 }
