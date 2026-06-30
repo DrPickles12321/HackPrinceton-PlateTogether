@@ -119,8 +119,8 @@ export default function AddFoodSheet({ open, onClose, mealLabel, mealItems = [],
     else onAddToMeal(food)
   }
 
-  function handleAddNewOrSuggested({ name, category }) {
-    const food = addFoodItem({ name, category })
+  function handleAddNewOrSuggested(payload) {
+    const food = addFoodItem(payload)
     if (food) onAddToMeal(food)
   }
 

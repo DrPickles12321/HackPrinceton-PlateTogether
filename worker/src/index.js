@@ -48,12 +48,15 @@ function extractNutrients(food) {
   return out
 }
 
-function usdaSearchUrl(env, query, pageSize) {
+const WHOLE_FOODS = 'Foundation,SR Legacy,Survey (FNDDS)'
+const WITH_BRANDED = 'Foundation,SR Legacy,Survey (FNDDS),Branded'
+
+function usdaSearchUrl(env, query, pageSize, dataType = WHOLE_FOODS) {
   const u = new URL('https://api.nal.usda.gov/fdc/v1/foods/search')
   u.searchParams.set('api_key', env.USDA_API_KEY)
   u.searchParams.set('query', query)
   u.searchParams.set('pageSize', String(pageSize))
-  u.searchParams.set('dataType', 'Foundation,SR Legacy,Survey (FNDDS)')
+  u.searchParams.set('dataType', dataType)
   return u.toString()
 }
 
@@ -80,11 +83,12 @@ async function handleFoodSearch(query, env) {
 }
 
 // Multi-result search — used by the Suggested tab to browse many foods.
+// Includes Branded/packaged products for the widest set of options.
 async function handleFoodSearchMulti(query, limit, env) {
   if (!env.USDA_API_KEY) return json({ error: 'USDA not configured' }, 503)
   let r
   try {
-    r = await fetch(usdaSearchUrl(env, query, limit))
+    r = await fetch(usdaSearchUrl(env, query, limit, WITH_BRANDED))
   } catch (err) {
     console.error('USDA search failed:', err.message)
     return json({ results: [] })

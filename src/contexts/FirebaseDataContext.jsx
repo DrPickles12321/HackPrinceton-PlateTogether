@@ -326,7 +326,7 @@ export function FirebaseDataProvider({ children }) {
     setSavedClinicianNotes(prev => prev.filter(n => n.id !== noteId))
   }
 
-  function addFoodItem({ name, category }) {
+  function addFoodItem({ name, category, group, nutrition }) {
     if (!uid) return null
     const id = crypto.randomUUID()
     const food = { id, name, category }
@@ -334,18 +334,24 @@ export function FirebaseDataProvider({ children }) {
     // local cache synchronously during set(), so an optimistic append here would
     // show the item twice. Let the listener be the single source of truth.
     set(ref(db, `users/${uid}/foodItems/${id}`), food)
-    // Enrich with USDA food group + macros in the background and persist them,
-    // so the "Food group" sort and Nutrition facts read real data. Best-effort:
-    // failures are ignored and the UI falls back to local estimates.
-    fetchFoodInfo(name)
-      .then(info => {
-        if (!info) return
-        const patch = {}
-        if (info.group) patch.group = info.group
-        if (info.nutrition) patch.usdaNutrition = info.nutrition
-        if (Object.keys(patch).length) update(ref(db, `users/${uid}/foodItems/${id}`), patch)
-      })
-      .catch(() => {})
+
+    if (nutrition) {
+      // Already enriched (e.g. picked from a USDA search result, which may be a
+      // branded product) — persist its exact macros/group immediately.
+      update(ref(db, `users/${uid}/foodItems/${id}`), { ...(group ? { group } : {}), usdaNutrition: nutrition })
+    } else {
+      // Enrich with USDA food group + macros in the background. Best-effort:
+      // failures are ignored and the UI falls back to local estimates.
+      fetchFoodInfo(name)
+        .then(info => {
+          if (!info) return
+          const patch = {}
+          if (info.group) patch.group = info.group
+          if (info.nutrition) patch.usdaNutrition = info.nutrition
+          if (Object.keys(patch).length) update(ref(db, `users/${uid}/foodItems/${id}`), patch)
+        })
+        .catch(() => {})
+    }
     return food
   }
 

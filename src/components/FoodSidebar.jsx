@@ -227,7 +227,7 @@ function prefixRank(name, q) {
   return 0
 }
 
-function SuggestRow({ name, buttonSize, dotSize, onAdd }) {
+function SuggestRow({ name, buttonSize, dotSize, onAdd, extra }) {
   return (
     <div style={{
       display: 'flex', alignItems: 'center', justifyContent: 'space-between',
@@ -241,7 +241,7 @@ function SuggestRow({ name, buttonSize, dotSize, onAdd }) {
             key={cat.key}
             title={`Add as ${cat.label}`}
             aria-label={`Add ${name} as ${cat.label}`}
-            onClick={() => onAdd({ name, category: cat.key })}
+            onClick={() => onAdd({ name, category: cat.key, ...extra })}
             style={{
               width: buttonSize, height: buttonSize, borderRadius: '50%', padding: 0,
               border: `1.5px solid ${cat.border}`, background: cat.bg,
@@ -341,7 +341,7 @@ export function SuggestedFoods({ onAdd, existingNames, buttonSize = 22 }) {
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
             {usdaResults.map(r => (
-              <SuggestRow key={r.name} name={r.name} buttonSize={buttonSize} dotSize={dotSize} onAdd={onAdd} />
+              <SuggestRow key={r.name} name={r.name} buttonSize={buttonSize} dotSize={dotSize} onAdd={onAdd} extra={{ group: r.group, nutrition: r.nutrition }} />
             ))}
           </div>
         </div>
@@ -360,8 +360,8 @@ export default function FoodSidebar() {
   const { foodItems, addFoodItem, deleteFoodItem, updateFoodItemCategory } = useFirebaseData()
   const [tab, setTab] = useState('mine')
 
-  function handleAddFood({ name, category }) {
-    addFoodItem({ name, category })
+  function handleAddFood(payload) {
+    addFoodItem(payload)
   }
 
   function handleDelete(food) {
