@@ -217,6 +217,16 @@ function Section({ config, foods, onDelete, onChangeCategory }) {
   )
 }
 
+// Prefix match: 2 = the whole name starts with the query, 1 = a word in the
+// name starts with it, 0 = no match. Used to filter + rank "starts with" search.
+function prefixRank(name, q) {
+  if (!q) return 2
+  const n = name.toLowerCase()
+  if (n.startsWith(q)) return 2
+  if (n.split(/[\s,()/-]+/).some(w => w.startsWith(q))) return 1
+  return 0
+}
+
 function SuggestRow({ name, buttonSize, dotSize, onAdd }) {
   return (
     <div style={{
@@ -257,13 +267,13 @@ export function SuggestedFoods({ onAdd, existingNames, buttonSize = 22 }) {
   const q = query.trim().toLowerCase()
   const existingLower = new Set(existingNames.map(n => n.toLowerCase()))
 
-  // Curated foods, filtered + grouped by their suggested category.
+  // Curated foods, filtered to "starts with" matches + grouped by category.
   const curated = COMMON_FOODS.filter(
-    f => !existingLower.has(f.name.toLowerCase()) && (!q || f.name.toLowerCase().includes(q))
+    f => !existingLower.has(f.name.toLowerCase()) && prefixRank(f.name, q) > 0
   )
   const byCat = Object.fromEntries(CATEGORIES.map(c => [c.key, []]))
   for (const f of curated) if (byCat[f.suggestedCategory]) byCat[f.suggestedCategory].push(f.name)
-  for (const k in byCat) byCat[k].sort((a, b) => a.localeCompare(b))
+  for (const k in byCat) byCat[k].sort((a, b) => prefixRank(b, q) - prefixRank(a, q) || a.localeCompare(b))
 
   // Live USDA search for many more options (only when the Worker is configured).
   useEffect(() => {
@@ -271,10 +281,13 @@ export function SuggestedFoods({ onAdd, existingNames, buttonSize = 22 }) {
     let cancelled = false
     setSearching(true)
     const t = setTimeout(async () => {
-      const results = await searchFoods(query.trim(), 12)
+      const results = await searchFoods(query.trim(), 20)
       if (cancelled) return
       const curatedNames = new Set(COMMON_FOODS.map(f => f.name.toLowerCase()))
-      setUsdaResults(results.filter(r => !existingLower.has(r.name.toLowerCase()) && !curatedNames.has(r.name.toLowerCase())))
+      const ranked = results
+        .filter(r => !existingLower.has(r.name.toLowerCase()) && !curatedNames.has(r.name.toLowerCase()) && prefixRank(r.name, q) > 0)
+        .sort((a, b) => prefixRank(b.name, q) - prefixRank(a.name, q) || a.name.localeCompare(b.name))
+      setUsdaResults(ranked)
       setSearching(false)
     }, 350)
     return () => { cancelled = true; clearTimeout(t) }
