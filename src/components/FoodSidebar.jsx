@@ -4,6 +4,7 @@ import { useFirebaseData } from '../contexts/FirebaseDataContext'
 import AddFoodInput from './AddFoodInput'
 import Modal from './Modal'
 import NutritionFacts from './NutritionFacts'
+import { searchFoods } from '../lib/foodData'
 import { COMMON_FOODS } from '../data/commonFoods'
 
 export const CATEGORIES = [
@@ -216,53 +217,128 @@ function Section({ config, foods, onDelete, onChangeCategory }) {
   )
 }
 
+function SuggestRow({ name, buttonSize, dotSize, onAdd }) {
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+      background: 'white', border: '1.5px solid var(--border)',
+      borderRadius: 11, padding: '8px 10px', gap: 8,
+    }}>
+      <span style={{ fontSize: 13, color: 'var(--text-dark)', flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</span>
+      <div style={{ display: 'flex', gap: 5, flexShrink: 0 }}>
+        {CATEGORIES.map(cat => (
+          <button
+            key={cat.key}
+            title={`Add as ${cat.label}`}
+            aria-label={`Add ${name} as ${cat.label}`}
+            onClick={() => onAdd({ name, category: cat.key })}
+            style={{
+              width: buttonSize, height: buttonSize, borderRadius: '50%', padding: 0,
+              border: `1.5px solid ${cat.border}`, background: cat.bg,
+              cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+              transition: 'transform 0.1s', flexShrink: 0,
+            }}
+            onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.12)'}
+            onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
+          >
+            <span style={{ width: dotSize, height: dotSize, borderRadius: '50%', background: cat.color, display: 'block' }} />
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 export function SuggestedFoods({ onAdd, existingNames, buttonSize = 22 }) {
-  const existingLower = new Set(existingNames.map(n => n.toLowerCase()))
-  const items = COMMON_FOODS
-    .filter(f => !existingLower.has(f.name.toLowerCase()))
-    .map(f => f.name)
-    .sort((a, b) => a.localeCompare(b))
+  const [query, setQuery] = useState('')
+  const [usdaResults, setUsdaResults] = useState([])
+  const [searching, setSearching] = useState(false)
   const dotSize = Math.round(buttonSize * 0.36)
+  const q = query.trim().toLowerCase()
+  const existingLower = new Set(existingNames.map(n => n.toLowerCase()))
+
+  // Curated foods, filtered + grouped by their suggested category.
+  const curated = COMMON_FOODS.filter(
+    f => !existingLower.has(f.name.toLowerCase()) && (!q || f.name.toLowerCase().includes(q))
+  )
+  const byCat = Object.fromEntries(CATEGORIES.map(c => [c.key, []]))
+  for (const f of curated) if (byCat[f.suggestedCategory]) byCat[f.suggestedCategory].push(f.name)
+  for (const k in byCat) byCat[k].sort((a, b) => a.localeCompare(b))
+
+  // Live USDA search for many more options (only when the Worker is configured).
+  useEffect(() => {
+    if (q.length < 2) { setUsdaResults([]); setSearching(false); return }
+    let cancelled = false
+    setSearching(true)
+    const t = setTimeout(async () => {
+      const results = await searchFoods(query.trim(), 12)
+      if (cancelled) return
+      const curatedNames = new Set(COMMON_FOODS.map(f => f.name.toLowerCase()))
+      setUsdaResults(results.filter(r => !existingLower.has(r.name.toLowerCase()) && !curatedNames.has(r.name.toLowerCase())))
+      setSearching(false)
+    }, 350)
+    return () => { cancelled = true; clearTimeout(t) }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [q])
+
+  const curatedCount = curated.length
+  const showMore = searching || usdaResults.length > 0
 
   return (
     <div style={{ flex: 1, overflowY: 'auto' }}>
-      <p style={{ fontSize: 11, color: 'var(--text-light)', lineHeight: 1.5, marginBottom: 10 }}>
-        Pick how it feels right now — familiar, working on, or a challenge.
-      </p>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-        {items.map(name => (
-          <div
-            key={name}
-            style={{
-              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-              background: 'white', border: '1.5px solid var(--border)',
-              borderRadius: 11, padding: '8px 10px', gap: 8,
-            }}
-          >
-            <span style={{ fontSize: 13, color: 'var(--text-dark)', flex: 1 }}>{name}</span>
-            <div style={{ display: 'flex', gap: 5, flexShrink: 0 }}>
-              {CATEGORIES.map(cat => (
-                <button
-                  key={cat.key}
-                  title={`Add as ${cat.label}`}
-                  aria-label={`Add ${name} as ${cat.label}`}
-                  onClick={() => onAdd({ name, category: cat.key })}
-                  style={{
-                    width: buttonSize, height: buttonSize, borderRadius: '50%', padding: 0,
-                    border: `1.5px solid ${cat.border}`, background: cat.bg,
-                    cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    transition: 'transform 0.1s', flexShrink: 0,
-                  }}
-                  onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.12)'}
-                  onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
-                >
-                  <span style={{ width: dotSize, height: dotSize, borderRadius: '50%', background: cat.color, display: 'block' }} />
-                </button>
-              ))}
-            </div>
+      <input
+        value={query}
+        onChange={e => setQuery(e.target.value)}
+        placeholder="Search foods…"
+        style={{
+          width: '100%', border: '1.5px solid var(--border)', borderRadius: 11,
+          padding: '9px 12px', fontSize: 13, color: 'var(--text-dark)', outline: 'none',
+          boxSizing: 'border-box', fontFamily: "'Outfit', sans-serif",
+          background: 'var(--surface-warm)', marginBottom: 12,
+          transition: 'border-color 0.15s, box-shadow 0.15s',
+        }}
+        onFocus={e => { e.target.style.borderColor = 'var(--coral)'; e.target.style.boxShadow = '0 0 0 3px rgba(184,85,53,0.1)' }}
+        onBlur={e => { e.target.style.borderColor = 'var(--border)'; e.target.style.boxShadow = 'none' }}
+      />
+
+      {!q && (
+        <p style={{ fontSize: 11, color: 'var(--text-light)', lineHeight: 1.5, marginBottom: 10 }}>
+          Pick how it feels right now — familiar, working on, or a challenge.
+        </p>
+      )}
+
+      {CATEGORIES.map(cat => byCat[cat.key].length > 0 && (
+        <div key={cat.key} style={{ marginBottom: 14 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 7 }}>
+            <span style={{ width: 8, height: 8, borderRadius: '50%', background: cat.color }} />
+            <span style={{ fontSize: 11, fontWeight: 700, color: cat.color, letterSpacing: '0.4px', textTransform: 'uppercase' }}>{cat.label}</span>
           </div>
-        ))}
-      </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+            {byCat[cat.key].map(name => (
+              <SuggestRow key={name} name={name} buttonSize={buttonSize} dotSize={dotSize} onAdd={onAdd} />
+            ))}
+          </div>
+        </div>
+      ))}
+
+      {showMore && (
+        <div style={{ marginBottom: 14 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-light)', letterSpacing: '0.4px', textTransform: 'uppercase', marginBottom: 7 }}>
+            More foods{searching ? ' · searching…' : ''}
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+            {usdaResults.map(r => (
+              <SuggestRow key={r.name} name={r.name} buttonSize={buttonSize} dotSize={dotSize} onAdd={onAdd} />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {q && curatedCount === 0 && !showMore && (
+        <p style={{ fontSize: 12, color: 'var(--text-light)', fontStyle: 'italic' }}>
+          No matches. You can still add “{query.trim()}” from the My List tab.
+        </p>
+      )}
     </div>
   )
 }

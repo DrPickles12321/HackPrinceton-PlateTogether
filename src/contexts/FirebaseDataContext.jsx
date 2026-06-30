@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useState } from 'react'
 import { ref, onValue, set, update, get } from 'firebase/database'
 import { db } from '../firebase'
 import { useAuth } from './AuthContext'
-import { fetchFoodGroup } from '../lib/foodData'
+import { fetchFoodInfo } from '../lib/foodData'
 
 const FirebaseDataContext = createContext(null)
 
@@ -334,11 +334,17 @@ export function FirebaseDataProvider({ children }) {
     // local cache synchronously during set(), so an optimistic append here would
     // show the item twice. Let the listener be the single source of truth.
     set(ref(db, `users/${uid}/foodItems/${id}`), food)
-    // Enrich with a USDA food group in the background and persist it, so the
-    // add-food "Food group" sort can read it synchronously later. Best-effort:
-    // failures are ignored and the UI falls back to local classification.
-    fetchFoodGroup(name)
-      .then(group => { if (group) update(ref(db, `users/${uid}/foodItems/${id}`), { group }) })
+    // Enrich with USDA food group + macros in the background and persist them,
+    // so the "Food group" sort and Nutrition facts read real data. Best-effort:
+    // failures are ignored and the UI falls back to local estimates.
+    fetchFoodInfo(name)
+      .then(info => {
+        if (!info) return
+        const patch = {}
+        if (info.group) patch.group = info.group
+        if (info.nutrition) patch.usdaNutrition = info.nutrition
+        if (Object.keys(patch).length) update(ref(db, `users/${uid}/foodItems/${id}`), patch)
+      })
       .catch(() => {})
     return food
   }

@@ -31,29 +31,77 @@ function mapCategoryToGroup(cat) {
   return 'mixed'
 }
 
-async function handleFoodSearch(query, env) {
-  if (!env.USDA_API_KEY) return json({ error: 'USDA not configured' }, 503)
+// Pull the core macros out of a USDA food's foodNutrients array.
+function extractNutrients(food) {
+  const out = { calories: 0, protein_g: 0, carbs_g: 0, fat_g: 0, fiber_g: 0 }
+  for (const n of food.foodNutrients || []) {
+    const name = (n.nutrientName || n.nutrient?.name || '').toLowerCase()
+    const unit = (n.unitName || n.nutrient?.unitName || '').toLowerCase()
+    const val = typeof n.value === 'number' ? n.value : (typeof n.amount === 'number' ? n.amount : 0)
+    if (name === 'energy' && unit === 'kcal') { if (!out.calories) out.calories = val }
+    else if (name.startsWith('protein')) out.protein_g = val
+    else if (name.startsWith('carbohydrate')) out.carbs_g = val
+    else if (name.startsWith('total lipid')) out.fat_g = val
+    else if (name.startsWith('fiber')) out.fiber_g = val
+  }
+  for (const k in out) out[k] = Math.round(out[k] * 10) / 10
+  return out
+}
+
+function usdaSearchUrl(env, query, pageSize) {
   const u = new URL('https://api.nal.usda.gov/fdc/v1/foods/search')
   u.searchParams.set('api_key', env.USDA_API_KEY)
   u.searchParams.set('query', query)
-  u.searchParams.set('pageSize', '1')
+  u.searchParams.set('pageSize', String(pageSize))
   u.searchParams.set('dataType', 'Foundation,SR Legacy,Survey (FNDDS)')
+  return u.toString()
+}
+
+// Single best-match lookup — used to enrich a food on creation.
+async function handleFoodSearch(query, env) {
+  if (!env.USDA_API_KEY) return json({ error: 'USDA not configured' }, 503)
   let r
   try {
-    r = await fetch(u.toString())
+    r = await fetch(usdaSearchUrl(env, query, 1))
   } catch (err) {
     console.error('USDA fetch failed:', err.message)
-    return json({ matched: null, group: null })
+    return json({ matched: null, group: null, nutrition: null })
   }
   if (!r.ok) return json({ error: `USDA API ${r.status}` }, 502)
   const data = await r.json()
   const food = data.foods?.[0]
-  if (!food) return json({ matched: null, group: null })
+  if (!food) return json({ matched: null, group: null, nutrition: null })
   return json({
     matched: food.description || null,
     foodCategory: food.foodCategory || null,
     group: mapCategoryToGroup(food.foodCategory),
+    nutrition: extractNutrients(food),
   })
+}
+
+// Multi-result search — used by the Suggested tab to browse many foods.
+async function handleFoodSearchMulti(query, limit, env) {
+  if (!env.USDA_API_KEY) return json({ error: 'USDA not configured' }, 503)
+  let r
+  try {
+    r = await fetch(usdaSearchUrl(env, query, limit))
+  } catch (err) {
+    console.error('USDA search failed:', err.message)
+    return json({ results: [] })
+  }
+  if (!r.ok) return json({ error: `USDA API ${r.status}` }, 502)
+  const data = await r.json()
+  const seen = new Set()
+  const results = []
+  for (const food of data.foods || []) {
+    const name = (food.description || '').trim()
+    if (!name) continue
+    const key = name.toLowerCase()
+    if (seen.has(key)) continue
+    seen.add(key)
+    results.push({ name, group: mapCategoryToGroup(food.foodCategory), nutrition: extractNutrients(food) })
+  }
+  return json({ results })
 }
 
 export default {
@@ -94,9 +142,15 @@ export default {
       return json({ error: 'Invalid JSON body' }, 400)
     }
 
-    // USDA food-group lookup: { query: "<food name>" }
+    // USDA single-food enrichment: { query: "<food name>" }
     if (typeof body?.query === 'string' && body.query.trim()) {
       return handleFoodSearch(body.query.trim().slice(0, 200), env)
+    }
+
+    // USDA multi-result search: { search: "<query>", limit?: N }
+    if (typeof body?.search === 'string' && body.search.trim()) {
+      const limit = Math.min(Math.max(parseInt(body.limit, 10) || 12, 1), 20)
+      return handleFoodSearchMulti(body.search.trim().slice(0, 200), limit, env)
     }
 
     const prompt = body?.prompt

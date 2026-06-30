@@ -16,8 +16,10 @@ const GROUP_LABEL = { grain: 'Grains', produce: 'Fruits & veggies', protein: 'Pr
 // manually-entered override, with edit + reset.
 export default function NutritionFacts({ food, onSave, onReset }) {
   const estimated = lookupNutrition(food.name, food.category)
-  const manual = food.nutrition || null
-  const values = manual || estimated
+  const manual = food.nutrition || null      // hand-entered override
+  const usda = food.usdaNutrition || null     // auto-fetched from USDA
+  const values = manual || usda || estimated
+  const source = manual ? 'manual' : usda ? 'usda' : 'estimated'
   const group = food.group || estimated.plate_zone || 'mixed'
 
   const [editing, setEditing] = useState(false)
@@ -62,13 +64,13 @@ export default function NutritionFacts({ food, onSave, onReset }) {
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>
         <span style={{
           fontSize: 11, fontWeight: 600, padding: '3px 10px', borderRadius: 20,
-          background: manual ? 'var(--mint-light)' : 'var(--surface-warm)',
-          color: manual ? 'var(--mint)' : 'var(--text-light)',
-          border: `1px solid ${manual ? 'var(--mint-mid)' : 'var(--border)'}`,
+          background: source === 'manual' ? 'var(--mint-light)' : source === 'usda' ? 'var(--coral-light)' : 'var(--surface-warm)',
+          color: source === 'manual' ? 'var(--mint)' : source === 'usda' ? 'var(--coral)' : 'var(--text-light)',
+          border: `1px solid ${source === 'manual' ? 'var(--mint-mid)' : source === 'usda' ? 'var(--coral-mid)' : 'var(--border)'}`,
         }}>
-          {manual ? 'Manually entered' : 'Estimated'}
+          {source === 'manual' ? 'Manually entered' : source === 'usda' ? 'From USDA' : 'Estimated'}
         </span>
-        {!manual && estimated.matchedName && estimated.confidence !== 'not_found' && (
+        {source === 'estimated' && estimated.matchedName && estimated.confidence !== 'not_found' && (
           <span style={{ fontSize: 12, color: 'var(--text-light)' }}>matched “{estimated.matchedName}”</span>
         )}
         <span style={{
@@ -78,9 +80,9 @@ export default function NutritionFacts({ food, onSave, onReset }) {
         }}>{GROUP_LABEL[group] || 'Mixed'}</span>
       </div>
 
-      {!editing && estimated.serving_description && (
+      {!editing && (
         <p style={{ fontSize: 12, color: 'var(--text-light)', marginBottom: 14 }}>
-          Per {manual ? 'serving' : estimated.serving_description}
+          Per {source === 'estimated' ? (estimated.serving_description || 'serving') : 'serving'}
         </p>
       )}
 
@@ -141,7 +143,7 @@ export default function NutritionFacts({ food, onSave, onReset }) {
                 onClick={handleReset}
                 disabled={saving}
                 style={btnStyle(false)}
-              >Reset to estimate</button>
+              >Reset{usda ? ' to USDA' : ' to estimate'}</button>
             )}
             <button
               onClick={startEdit}
