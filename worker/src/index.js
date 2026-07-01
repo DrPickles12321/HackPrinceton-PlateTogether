@@ -23,11 +23,12 @@ function json(body, status = 200) {
 function mapCategoryToGroup(cat) {
   const c = (typeof cat === 'string' ? cat : cat?.description || '').toLowerCase()
   if (!c) return 'mixed'
-  if (c.includes('fruit')) return 'produce'
-  if (c.includes('vegetable')) return 'produce'
-  if (c.includes('grain') || c.includes('pasta') || c.includes('bread') || c.includes('baked') || c.includes('cereal')) return 'grain'
-  if (c.includes('dairy') || c.includes('egg')) return 'dairy'
-  if (/poultry|beef|pork|lamb|veal|sausage|luncheon|fish|shellfish|legume|nut|seed|meat/.test(c)) return 'protein'
+  const has = (...ws) => ws.some(w => c.includes(w))
+  if (has('fruit', 'apple', 'banana', 'berr', 'grape', 'melon', 'citrus', 'orange', 'peach', 'pear', 'plum', 'mango', 'pineapple', 'cherry')) return 'produce'
+  if (has('vegetable', 'potato', 'carrot', 'broccoli', 'spinach', 'lettuce', 'tomato', 'beans', 'peas', 'corn', 'squash', 'pepper', 'onion', 'greens')) return 'produce'
+  if (has('grain', 'pasta', 'bread', 'cereal', 'rice', 'oat', 'wheat', 'flour', 'baked', 'cracker', 'noodle')) return 'grain'
+  if (has('dairy', 'milk', 'cheese', 'yogurt', 'egg', 'butter', 'cream')) return 'dairy'
+  if (has('poultry', 'chicken', 'turkey', 'beef', 'pork', 'lamb', 'veal', 'fish', 'salmon', 'tuna', 'shellfish', 'shrimp', 'sausage', 'meat', 'legume', 'nut', 'seed', 'tofu', 'bacon')) return 'protein'
   return 'mixed'
 }
 
@@ -48,16 +49,17 @@ function extractNutrients(food) {
   return out
 }
 
-const WHOLE_FOODS = 'Foundation,SR Legacy,Survey (FNDDS)'
-const WITH_BRANDED = 'Foundation,SR Legacy,Survey (FNDDS),Branded'
+const WHOLE_FOODS = ['Foundation', 'SR Legacy', 'Survey (FNDDS)']
+const WITH_BRANDED = ['Foundation', 'SR Legacy', 'Survey (FNDDS)', 'Branded']
 
-function usdaSearchUrl(env, query, pageSize, dataType = WHOLE_FOODS) {
-  const u = new URL('https://api.nal.usda.gov/fdc/v1/foods/search')
-  u.searchParams.set('api_key', env.USDA_API_KEY)
-  u.searchParams.set('query', query)
-  u.searchParams.set('pageSize', String(pageSize))
-  u.searchParams.set('dataType', dataType)
-  return u.toString()
+// USDA's GET /foods/search 400s when a dataType value contains spaces/parens
+// (e.g. "Survey (FNDDS)"). Use POST with a JSON body, which takes the array cleanly.
+function usdaSearch(env, query, pageSize, dataType) {
+  return fetch(`https://api.nal.usda.gov/fdc/v1/foods/search?api_key=${encodeURIComponent(env.USDA_API_KEY)}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ query, pageSize, dataType }),
+  })
 }
 
 // Single best-match lookup — used to enrich a food on creation.
@@ -65,7 +67,7 @@ async function handleFoodSearch(query, env) {
   if (!env.USDA_API_KEY) return json({ error: 'USDA not configured' }, 503)
   let r
   try {
-    r = await fetch(usdaSearchUrl(env, query, 1))
+    r = await usdaSearch(env, query, 1, WHOLE_FOODS)
   } catch (err) {
     console.error('USDA fetch failed:', err.message)
     return json({ matched: null, group: null, nutrition: null })
@@ -88,7 +90,7 @@ async function handleFoodSearchMulti(query, limit, env) {
   if (!env.USDA_API_KEY) return json({ error: 'USDA not configured' }, 503)
   let r
   try {
-    r = await fetch(usdaSearchUrl(env, query, limit, WITH_BRANDED))
+    r = await usdaSearch(env, query, limit, WITH_BRANDED)
   } catch (err) {
     console.error('USDA search failed:', err.message)
     return json({ results: [] })
