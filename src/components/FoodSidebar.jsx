@@ -267,13 +267,11 @@ export function SuggestedFoods({ onAdd, existingNames, buttonSize = 22 }) {
   const q = query.trim().toLowerCase()
   const existingLower = new Set(existingNames.map(n => n.toLowerCase()))
 
-  // Curated foods, filtered to "starts with" matches + grouped by category.
-  const curated = COMMON_FOODS.filter(
-    f => !existingLower.has(f.name.toLowerCase()) && prefixRank(f.name, q) > 0
-  )
-  const byCat = Object.fromEntries(CATEGORIES.map(c => [c.key, []]))
-  for (const f of curated) if (byCat[f.suggestedCategory]) byCat[f.suggestedCategory].push(f.name)
-  for (const k in byCat) byCat[k].sort((a, b) => prefixRank(b, q) - prefixRank(a, q) || a.localeCompare(b))
+  // Curated foods, filtered to "starts with" matches — flat list (no category split).
+  const curatedNamesList = COMMON_FOODS
+    .filter(f => !existingLower.has(f.name.toLowerCase()) && prefixRank(f.name, q) > 0)
+    .map(f => f.name)
+    .sort((a, b) => prefixRank(b, q) - prefixRank(a, q) || a.localeCompare(b))
 
   // Live USDA search for many more options (only when the Worker is configured).
   useEffect(() => {
@@ -294,7 +292,7 @@ export function SuggestedFoods({ onAdd, existingNames, buttonSize = 22 }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [q])
 
-  const curatedCount = curated.length
+  const curatedCount = curatedNamesList.length
   const showMore = searching || usdaResults.length > 0
 
   return (
@@ -316,23 +314,17 @@ export function SuggestedFoods({ onAdd, existingNames, buttonSize = 22 }) {
 
       {!q && (
         <p style={{ fontSize: 11, color: 'var(--text-light)', lineHeight: 1.5, marginBottom: 10 }}>
-          Pick how it feels right now — familiar, working on, or a challenge.
+          Pick how each food feels — familiar, working on, or a challenge.
         </p>
       )}
 
-      {CATEGORIES.map(cat => byCat[cat.key].length > 0 && (
-        <div key={cat.key} style={{ marginBottom: 14 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 7 }}>
-            <span style={{ width: 8, height: 8, borderRadius: '50%', background: cat.color }} />
-            <span style={{ fontSize: 11, fontWeight: 700, color: cat.color, letterSpacing: '0.4px', textTransform: 'uppercase' }}>{cat.label}</span>
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-            {byCat[cat.key].map(name => (
-              <SuggestRow key={name} name={name} buttonSize={buttonSize} dotSize={dotSize} onAdd={onAdd} />
-            ))}
-          </div>
+      {curatedNamesList.length > 0 && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 5, marginBottom: 14 }}>
+          {curatedNamesList.map(name => (
+            <SuggestRow key={name} name={name} buttonSize={buttonSize} dotSize={dotSize} onAdd={onAdd} />
+          ))}
         </div>
-      ))}
+      )}
 
       {showMore && (
         <div style={{ marginBottom: 14 }}>
