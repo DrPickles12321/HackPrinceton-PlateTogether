@@ -55,7 +55,9 @@ const WITH_BRANDED = ['Foundation', 'SR Legacy', 'Survey (FNDDS)', 'Branded']
 // USDA's GET /foods/search 400s when a dataType value contains spaces/parens
 // (e.g. "Survey (FNDDS)"). Use POST with a JSON body, which takes the array cleanly.
 function usdaSearch(env, query, pageSize, dataType) {
-  return fetch(`https://api.nal.usda.gov/fdc/v1/foods/search?api_key=${encodeURIComponent(env.USDA_API_KEY)}`, {
+  // Trim in case the stored secret picked up a trailing newline/space on paste.
+  const key = (env.USDA_API_KEY || '').trim()
+  return fetch(`https://api.nal.usda.gov/fdc/v1/foods/search?api_key=${encodeURIComponent(key)}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ query, pageSize, dataType }),
