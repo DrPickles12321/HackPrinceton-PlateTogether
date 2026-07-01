@@ -150,6 +150,42 @@ export default {
       return json({ error: 'Invalid JSON body' }, 400)
     }
 
+    // Chat mode: { system?: string, messages: [{ role, content }] }
+    if (Array.isArray(body?.messages)) {
+      const messages = body.messages
+      if (messages.length === 0 || messages.length > 20) {
+        return json({ error: 'messages must be 1-20 items' }, 400)
+      }
+      for (const m of messages) {
+        if (!m || (m.role !== 'user' && m.role !== 'assistant') || typeof m.content !== 'string') {
+          return json({ error: 'invalid message' }, 400)
+        }
+        if (m.content.length > 4000) return json({ error: 'message too long' }, 400)
+      }
+      const system = typeof body.system === 'string' ? body.system.slice(0, 8000) : undefined
+      const res = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'x-api-key': env.ANTHROPIC_API_KEY,
+          'anthropic-version': '2023-06-01',
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'claude-haiku-4-5-20251001',
+          max_tokens: 600,
+          system,
+          messages,
+        }),
+      })
+      if (!res.ok) {
+        const errText = await res.text()
+        return json({ error: `Anthropic API ${res.status}: ${errText}` }, 502)
+      }
+      const data = await res.json()
+      const text = data.content?.[0]?.text
+      return json({ text: typeof text === 'string' ? text.trim() : '' })
+    }
+
     // USDA single-food enrichment: { query: "<food name>" }
     if (typeof body?.query === 'string' && body.query.trim()) {
       return handleFoodSearch(body.query.trim().slice(0, 200), env)
