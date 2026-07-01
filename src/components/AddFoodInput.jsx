@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import Fuse from 'fuse.js'
 import { COMMON_FOODS } from '../data/commonFoods'
+import { searchFoods } from '../lib/foodData'
 
 const fuse = new Fuse(COMMON_FOODS, { keys: ['name'], threshold: 0.4 })
 
@@ -10,12 +11,12 @@ const CATEGORIES = [
   { key: 'challenge',  label: 'Challenge',  color: 'var(--pink)',  bg: 'var(--pink-light)',  border: 'var(--pink-mid)' },
 ]
 
-const CAT_DOT = { familiar: 'var(--mint)', working_on: 'var(--peach)', challenge: 'var(--pink)' }
-
 export default function AddFoodInput({ onAddFood, existingFoodNames = [] }) {
   const [name, setName]               = useState('')
   const [category, setCategory]       = useState('familiar')
-  const [suggestions, setSuggestions] = useState([])
+  const [suggestions, setSuggestions] = useState([])   // local curated matches
+  const [usdaSug, setUsdaSug]         = useState([])    // live USDA matches
+  const [pickedExtra, setPickedExtra] = useState(null)  // group/nutrition of a picked USDA item
   const [activeIndex, setActiveIndex] = useState(-1)
   const [open, setOpen]               = useState(false)
   const [toast, setToast]             = useState('')
@@ -28,29 +29,50 @@ export default function AddFoodInput({ onAddFood, existingFoodNames = [] }) {
     }
   }, [toast])
 
+  // Live USDA suggestions (debounced) so any food is findable here too.
+  useEffect(() => {
+    const v = name.trim()
+    if (v.length < 2) { setUsdaSug([]); return }
+    let cancelled = false
+    const t = setTimeout(async () => {
+      const results = await searchFoods(v, 8)
+      if (!cancelled) setUsdaSug(results)
+    }, 350)
+    return () => { cancelled = true; clearTimeout(t) }
+  }, [name])
+
+  const localNames = new Set(suggestions.map(s => s.name.toLowerCase()))
+  const existingLower = new Set(existingFoodNames.map(n => n.toLowerCase()))
+  const merged = [
+    ...suggestions,
+    ...usdaSug.filter(u => !localNames.has(u.name.toLowerCase())),
+  ].filter(item => !existingLower.has(item.name.toLowerCase())).slice(0, 8)
+
   function handleChange(e) {
     const val = e.target.value
     setName(val)
     setActiveIndex(-1)
-    if (val.trim().length < 1) { setSuggestions([]); setOpen(false); return }
-    const results = fuse.search(val).slice(0, 5).map(r => r.item)
-    setSuggestions(results)
-    setOpen(results.length > 0)
+    setPickedExtra(null)
+    if (val.trim().length < 1) { setSuggestions([]); setUsdaSug([]); setOpen(false); return }
+    setSuggestions(fuse.search(val).slice(0, 5).map(r => r.item))
+    setOpen(true)
   }
 
   function selectSuggestion(food) {
     setName(food.name)
-    setCategory(food.suggestedCategory)
+    if (food.suggestedCategory) setCategory(food.suggestedCategory)
+    setPickedExtra(food.group || food.nutrition ? { group: food.group, nutrition: food.nutrition } : null)
     setSuggestions([])
+    setUsdaSug([])
     setOpen(false)
     inputRef.current?.focus()
   }
 
   function handleKeyDown(e) {
-    if (!open) return
-    if (e.key === 'ArrowDown') { e.preventDefault(); setActiveIndex(i => Math.min(i + 1, suggestions.length - 1)) }
+    if (!open || merged.length === 0) return
+    if (e.key === 'ArrowDown') { e.preventDefault(); setActiveIndex(i => Math.min(i + 1, merged.length - 1)) }
     else if (e.key === 'ArrowUp') { e.preventDefault(); setActiveIndex(i => Math.max(i - 1, 0)) }
-    else if (e.key === 'Enter' && activeIndex >= 0) { e.preventDefault(); selectSuggestion(suggestions[activeIndex]) }
+    else if (e.key === 'Enter' && activeIndex >= 0) { e.preventDefault(); selectSuggestion(merged[activeIndex]) }
     else if (e.key === 'Escape') setOpen(false)
   }
 
@@ -62,10 +84,12 @@ export default function AddFoodInput({ onAddFood, existingFoodNames = [] }) {
       setToast('You already have that food — check the sidebar.')
       return
     }
-    onAddFood({ name: trimmed, category })
+    onAddFood({ name: trimmed, category, ...(pickedExtra || {}) })
     setName('')
     setCategory('familiar')
+    setPickedExtra(null)
     setSuggestions([])
+    setUsdaSug([])
     setOpen(false)
   }
 
@@ -88,7 +112,7 @@ export default function AddFoodInput({ onAddFood, existingFoodNames = [] }) {
             onChange={handleChange}
             onKeyDown={handleKeyDown}
             onBlur={() => setTimeout(() => setOpen(false), 150)}
-            onFocus={() => suggestions.length > 0 && setOpen(true)}
+            onFocus={() => merged.length > 0 && setOpen(true)}
             placeholder="Add a food…"
             style={{
               width: '100%', border: '1.5px solid var(--border)',
@@ -106,14 +130,14 @@ export default function AddFoodInput({ onAddFood, existingFoodNames = [] }) {
               e.target.style.boxShadow = 'none'
             }}
           />
-          {open && (
+          {open && merged.length > 0 && (
             <ul style={{
               position: 'absolute', zIndex: 50, left: 0, right: 0, top: '100%', marginTop: 5,
               background: 'white', border: '1.5px solid var(--border)', borderRadius: 13,
               boxShadow: '0 8px 28px rgba(39,23,6,0.12)', overflow: 'hidden', listStyle: 'none',
               padding: 4, margin: 0,
             }}>
-              {suggestions.map((food, i) => (
+              {merged.map((food, i) => (
                 <li
                   key={food.name}
                   onMouseDown={() => selectSuggestion(food)}
@@ -124,8 +148,9 @@ export default function AddFoodInput({ onAddFood, existingFoodNames = [] }) {
                     color: 'var(--text-dark)',
                   }}
                 >
-                  <span style={{ width: 8, height: 8, borderRadius: '50%', flexShrink: 0, background: CAT_DOT[food.suggestedCategory] }} />
-                  {food.name}
+                  {/* Neutral dot — the food isn't categorized until you add it. */}
+                  <span style={{ width: 8, height: 8, borderRadius: '50%', flexShrink: 0, background: 'var(--border-mid)' }} />
+                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{food.name}</span>
                 </li>
               ))}
             </ul>
