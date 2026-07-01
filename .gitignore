@@ -27,3 +27,4 @@ agent/.env
 *.njsproj
 *.sln
 *.sw?
+.superpowers/
