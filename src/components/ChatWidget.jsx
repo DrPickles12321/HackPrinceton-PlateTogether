@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useMemo } from 'react'
 import { useFirebaseData } from '../contexts/FirebaseDataContext'
+import { useIsMobile } from '../hooks/useIsMobile'
 import { buildWeekFacts } from '../lib/weekFacts'
 import { sendChat } from '../lib/chatService'
 
@@ -9,6 +10,11 @@ export default function ChatWidget() {
   // ChatWidget renders as a sibling of <Outlet> (not inside it), so it reads
   // data straight from the context provider, not useOutletContext.
   const { mealStatuses = {}, allMealItems = {}, sendSos, mySos = [] } = useFirebaseData()
+  const isMobile = useIsMobile()
+  // On mobile, clear the ~62px bottom tab bar; on desktop there's no tab bar.
+  const bubbleBottom = `calc(${isMobile ? 78 : 18}px + env(safe-area-inset-bottom))`
+  const panelBottom = `calc(${isMobile ? 142 : 84}px + env(safe-area-inset-bottom))`
+  const panelHeight = `min(520px, calc(100dvh - ${isMobile ? 200 : 130}px))`
   const [open, setOpen] = useState(false)
   const [messages, setMessages] = useState([GREETING])
   const [input, setInput] = useState('')
@@ -65,7 +71,7 @@ export default function ChatWidget() {
         onClick={() => setOpen(o => !o)}
         aria-label="Open assistant"
         style={{
-          position: 'fixed', right: 18, bottom: 'calc(18px + env(safe-area-inset-bottom))', zIndex: 45,
+          position: 'fixed', right: 18, bottom: bubbleBottom, zIndex: 45,
           width: 56, height: 56, borderRadius: '50%', border: 'none', cursor: 'pointer',
           background: 'linear-gradient(135deg, var(--coral) 0%, var(--pink) 100%)',
           color: 'white', fontSize: 24, boxShadow: '0 6px 18px rgba(184,85,53,0.4)',
@@ -77,8 +83,8 @@ export default function ChatWidget() {
 
       {open && (
         <div style={{
-          position: 'fixed', right: 18, bottom: 'calc(84px + env(safe-area-inset-bottom))', zIndex: 45,
-          width: 'min(360px, calc(100vw - 36px))', height: 'min(520px, calc(100dvh - 130px))',
+          position: 'fixed', right: 18, bottom: panelBottom, zIndex: 45,
+          width: 'min(360px, calc(100vw - 36px))', height: panelHeight,
           background: 'white', borderRadius: 18, border: '1.5px solid var(--border)',
           boxShadow: '0 12px 40px rgba(39,23,6,0.2)', display: 'flex', flexDirection: 'column', overflow: 'hidden',
           fontFamily: "'Outfit', sans-serif",
