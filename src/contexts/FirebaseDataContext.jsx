@@ -67,10 +67,13 @@ export function FirebaseDataProvider({ children }) {
   const [ownClinicianNotes, setOwnClinicianNotes]     = useState([])
   const [foodItems, setFoodItems]                     = useState([])
   const [familyCode, setFamilyCode]                   = useState(null)
+  const [mySos, setMySos]                             = useState([])   // parent's own SOS records
 
   // ── Clinician patient management ──────────────────────────────────────────
   const [patients, setPatients]                       = useState([])   // [{uid, email}]
   const [viewingPatientUid, setViewingPatientUid]     = useState(null)
+  const [patientSos, setPatientSos]                   = useState([])   // viewed patient's SOS
+  const [patientsWithOpenSos, setPatientsWithOpenSos] = useState({})   // { uid: true }
   const [patientFbMealData, setPatientFbMealData]     = useState({})
   const [patientMealTimesByDate, setPatientMealTimesByDate] = useState({})
   const [patientNutritionalTargets, setPatientNutritionalTargets] = useState(null)
@@ -153,6 +156,11 @@ export function FirebaseDataProvider({ children }) {
       setFoodItems(val ? Object.values(val) : [])
     }))
 
+    unsubs.push(onValue(ref(db, `${base}/sos`), snap => {
+      const val = snap.val() || {}
+      setMySos(Object.entries(val).map(([id, v]) => ({ id, ...v })))
+    }))
+
     unsubs.push(onValue(ref(db, `${base}/familyCode`), snap => {
       setFamilyCode(snap.val() || null)
     }))
@@ -177,6 +185,7 @@ export function FirebaseDataProvider({ children }) {
       setPatientPrescribedSupplements([])
       setPatientParentNotesByDate({})
       setPatientClinicianNotes([])
+      setPatientSos([])
       return
     }
     const unsubs = []
@@ -201,8 +210,25 @@ export function FirebaseDataProvider({ children }) {
       const val = snap.val()
       setPatientClinicianNotes(val ? Object.values(val).sort((a, b) => (b.created_at || '').localeCompare(a.created_at || '')) : [])
     }))
+    unsubs.push(onValue(ref(db, `users/${viewingPatientUid}/sos`), snap => {
+      const val = snap.val() || {}
+      setPatientSos(Object.entries(val).map(([id, v]) => ({ id, ...v })))
+    }))
     return () => unsubs.forEach(u => u())
   }, [viewingPatientUid])
+
+  // ── Watch every linked patient for an open SOS (patient-list badge) ────────
+  useEffect(() => {
+    if (!patients.length) { setPatientsWithOpenSos({}); return }
+    const unsubs = patients.map(p =>
+      onValue(ref(db, `users/${p.uid}/sos`), snap => {
+        const val = snap.val() || {}
+        const hasOpen = Object.values(val).some(s => s.status === 'open')
+        setPatientsWithOpenSos(prev => ({ ...prev, [p.uid]: hasOpen }))
+      })
+    )
+    return () => unsubs.forEach(u => u())
+  }, [patients])
 
   // ── Active data (patient's when clinician is viewing, own otherwise) ───────
   const activeFbMealData       = viewingPatientUid ? patientFbMealData : fbMealData
@@ -361,6 +387,23 @@ export function FirebaseDataProvider({ children }) {
     setFoodItems(prev => prev.filter(f => f.id !== id))
   }
 
+  // ── SOS (parent → care team) ───────────────────────────────────────────────
+  function sendSos({ note = '' }) {
+    if (!uid) return null
+    const id = crypto.randomUUID()
+    const record = { createdAt: new Date().toISOString(), note: String(note).slice(0, 500), status: 'open' }
+    set(ref(db, `users/${uid}/sos/${id}`), record)
+    return { id, ...record }
+  }
+
+  function acknowledgeSos(sosId, responseText) {
+    if (!viewingPatientUid) return
+    update(ref(db, `users/${viewingPatientUid}/sos/${sosId}`), {
+      status: 'acknowledged',
+      response: { body: String(responseText || '').slice(0, 500), at: new Date().toISOString() },
+    })
+  }
+
   // Manually entered nutrition override for a food (overrides the estimated
   // values from the local DB). Pass null/use reset to clear it.
   function setFoodNutrition(id, nutrition) {
@@ -472,6 +515,11 @@ export function FirebaseDataProvider({ children }) {
       updateFoodItemCategory,
       setFoodNutrition,
       resetFoodNutrition,
+      mySos,
+      sendSos,
+      patientSos,
+      patientsWithOpenSos,
+      acknowledgeSos,
     }}>
       {children}
     </FirebaseDataContext.Provider>

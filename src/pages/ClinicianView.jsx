@@ -9,6 +9,7 @@ import NotesPanel from '../components/NotesPanel'
 import DailyNutritionSummary from '../components/nutrition/DailyNutritionSummary'
 import WeeklyGoals from '../components/WeeklyGoals'
 import NutritionalTargets from '../components/NutritionalTargets'
+import SosAlert from '../components/SosAlert'
 import { useIsMobile } from '../hooks/useIsMobile'
 
 function useReveal(ref) {
@@ -315,6 +316,9 @@ export default function ClinicianView() {
     savePrescribedSupplements,
     clinicianNotes,
     writeClinicianNote,
+    patientSos,
+    patientsWithOpenSos,
+    acknowledgeSos,
   } = useFirebaseData()
 
   const [addCodeInput, setAddCodeInput] = useState('')
@@ -389,7 +393,7 @@ export default function ClinicianView() {
             >
               <option value="">— Select a patient —</option>
               {patients.map(p => (
-                <option key={p.uid} value={p.uid}>{p.email}</option>
+                <option key={p.uid} value={p.uid}>{patientsWithOpenSos[p.uid] ? '🆘 ' : ''}{p.email}</option>
               ))}
             </select>
           </div>
@@ -438,6 +442,11 @@ export default function ClinicianView() {
         </div>
       ) : (
         <>
+          <SosAlert
+            sos={patientSos}
+            patientEmail={patients.find(p => p.uid === viewingPatientUid)?.email || 'Patient'}
+            onAcknowledge={acknowledgeSos}
+          />
           <RevealSection eyebrow="Week at a glance">
             <WeeklyGrid
               onDayClick={(day, date) => setSelectedDay({ key: day, date })}

@@ -3,6 +3,7 @@ import { Outlet, useLocation } from 'react-router-dom'
 import { useFirebaseData } from '../contexts/FirebaseDataContext'
 import { useIsMobile } from '../hooks/useIsMobile'
 import MobileTabBar from '../components/MobileTabBar'
+import ChatWidget from '../components/ChatWidget'
 
 export default function ParentView() {
   const [weekOffset, setWeekOffset] = useState(0)
@@ -34,6 +35,7 @@ export default function ParentView() {
         <Outlet context={{ clinicianNotes, parentNotes, clinicianNotesRead, mealStatuses, savedClinicianNotes, allMealItems, weekOffset, setWeekOffset, saveParentNote, markClinicianNoteRead, saveClinicianNote, unsaveClinicianNote, clearAllSavedNotes, setMealStatus }} />
       </div>
       {isMobile && <MobileTabBar />}
+      <ChatWidget />
     </>
   )
 }

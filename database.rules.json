@@ -26,7 +26,8 @@
         "nutritionalTargets":    { ".write": "auth.uid === $uid || root.child('users/' + auth.uid + '/patients/' + $uid).exists()" },
         "prescribedSupplements": { ".write": "auth.uid === $uid || root.child('users/' + auth.uid + '/patients/' + $uid).exists()" },
         "parentNotes":           { ".write": "auth.uid === $uid || root.child('users/' + auth.uid + '/patients/' + $uid).exists()" },
-        "clinicianNotes":        { ".write": "root.child('users/' + auth.uid + '/patients/' + $uid).exists()" }
+        "clinicianNotes":        { ".write": "root.child('users/' + auth.uid + '/patients/' + $uid).exists()" },
+        "sos":                   { ".write": "auth.uid === $uid || root.child('users/' + auth.uid + '/patients/' + $uid).exists()" }
       }
     }
   }
