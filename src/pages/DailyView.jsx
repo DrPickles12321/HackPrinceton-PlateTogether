@@ -9,7 +9,7 @@ import { useIsMobile } from '../hooks/useIsMobile'
 import { lookupNutrition } from '../lib/nutritionService'
 import { useNutritionalTargets } from '../contexts/NutritionalTargetsContext'
 import { useFirebaseData } from '../contexts/FirebaseDataContext'
-import { getWeekDates } from '../lib/constants'
+import { getWeekDates, localIsoDate } from '../lib/constants'
 
 const DAYS = [
   { key: 'mon', label: 'Mon' },
@@ -69,7 +69,7 @@ function getTodayKey() {
   return days[new Date().getDay()]
 }
 
-const TODAY_ISO = new Date().toISOString().slice(0, 10)
+const TODAY_ISO = localIsoDate()
 
 function parseTimeValue(value) {
   const [hour = '08', minute = '00'] = (value || '08:00').split(':')
@@ -868,8 +868,8 @@ export function ClinicianNotesSidebar({ clinicianNotes, clinicianNotesRead, mark
     if (savedClinicianNotes.length === 0) { setShowSaved(false); setConfirmClear(false) }
   }, [savedClinicianNotes.length])
 
-  const today = new Date().toISOString().slice(0, 10)
-  const todayNote = clinicianNotes.find(n => n.created_at?.slice(0, 10) === today)
+  const today = localIsoDate()
+  const todayNote = clinicianNotes.find(n => n.created_at && localIsoDate(new Date(n.created_at)) === today)
   const latest = todayNote || clinicianNotes[0] || null
 
   const noteDate = latest?.created_at?.slice(0, 10)

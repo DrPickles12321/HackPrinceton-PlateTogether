@@ -2,8 +2,9 @@ import { useEffect } from 'react'
 import { useOutletContext } from 'react-router-dom'
 import { useIsMobile } from '../hooks/useIsMobile'
 import { ParentNoteSection, ClinicianNotesSidebar } from './DailyView'
+import { localIsoDate } from '../lib/constants'
 
-const TODAY_ISO = new Date().toISOString().slice(0, 10)
+const TODAY_ISO = localIsoDate()
 
 export default function NotesView() {
   const {

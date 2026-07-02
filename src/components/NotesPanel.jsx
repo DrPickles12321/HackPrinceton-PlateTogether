@@ -1,4 +1,5 @@
 import NoteComposer from './NoteComposer'
+import { localIsoDate } from '../lib/constants'
 
 function formatDate(isoString) {
   return new Date(isoString).toLocaleDateString('en-US', {
@@ -9,11 +10,11 @@ function formatDate(isoString) {
 function toDateKey(isoString) {
   if (!isoString) return 'unknown'
   const d = new Date(isoString)
-  return isNaN(d.getTime()) ? 'unknown' : d.toISOString().slice(0, 10)
+  return isNaN(d.getTime()) ? 'unknown' : localIsoDate(d)
 }
 
 export default function NotesPanel({ notes, mode, onSave, notesReadByParent = {} }) {
-  const today = new Date().toISOString().slice(0, 10)
+  const today = localIsoDate()
 
   const byDay = {}
   for (const note of notes) {
