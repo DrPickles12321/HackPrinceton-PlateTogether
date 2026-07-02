@@ -1,9 +1,12 @@
 import { useMemo, useState, useEffect, useRef, useCallback } from 'react'
 import { useOutletContext } from 'react-router-dom'
 import { lookupNutrition } from '../lib/nutritionService'
-import { getWeekDates } from '../lib/constants'
+import { getWeekDates, localIsoDate } from '../lib/constants'
 import { useIsMobile } from '../hooks/useIsMobile'
 import BottomSheet from '../components/BottomSheet'
+import ChevronButton from '../components/ChevronButton'
+import WeekSummaryStrip from '../components/WeekSummaryStrip'
+import { daySummaries, weekSummary, longestStreak } from '../lib/weekSummary'
 
 const DAYS = [
   { key: 'mon', label: 'Mon', full: 'Monday'    },
@@ -15,7 +18,7 @@ const DAYS = [
   { key: 'sun', label: 'Sun', full: 'Sunday'    },
 ]
 
-const TODAY_ISO = new Date().toISOString().slice(0, 10)
+const TODAY_ISO = localIsoDate()
 
 const MEALS = [
   { key: 'breakfast', label: 'B', icon: '☀️' },
@@ -204,6 +207,23 @@ export default function WeeklyView() {
     return result
   }, [weekDates, allMealItems])
 
+  // ── week summary chips (context above the grid) ──
+  const summaryChips = useMemo(() => {
+    const iso = DAYS.map(d => weekDates[d.key])
+    const summaries = daySummaries(mealStatuses, iso)
+    const roll = weekSummary(summaries)
+    const streak = longestStreak(summaries)
+    const produce = Math.round(
+      Object.values(macrosByDay).reduce((a, m) => a + (m.fruitsVeggies || 0), 0) / PRODUCE_G_PER_SERVING
+    )
+    return [
+      { icon: '🍽️', label: 'Meals logged', value: `${roll.logged}/${roll.totalSlots}`, color: 'var(--text-dark)', bg: 'white', border: 'var(--border)' },
+      { icon: '🌿', label: 'Went okay',     value: `${roll.okayPct}%`,                 color: 'var(--mint)',  bg: 'var(--mint-light)',  border: 'var(--mint-mid)' },
+      { icon: '🔥', label: 'Day streak', value: streak, color: 'var(--coral)', bg: 'var(--coral-light)', border: 'var(--coral-mid)' },
+      { icon: '🥕', label: 'Produce servings', value: produce, color: 'var(--peach)', bg: 'var(--peach-light)', border: 'var(--peach-mid)' },
+    ]
+  }, [mealStatuses, weekDates, macrosByDay])
+
   // ── day header click → compute viewport-safe position ──
   const handleDayClick = useCallback((dayKey) => {
     if (openDay === dayKey) { setOpenDay(null); return }
@@ -231,9 +251,9 @@ export default function WeeklyView() {
         <p style={{ fontSize: 13, color: 'var(--text-light)', margin: '0 0 14px' }}>Tap a day for its nutrition summary</p>
 
         {/* Week navigator */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-          <button onClick={() => setWeekOffset(o => o - 1)} style={{ width: 36, height: 36, borderRadius: '50%', border: 'none', background: '#fff', color: 'var(--text-light)', fontSize: 17, cursor: 'pointer', boxShadow: '0 1px 4px rgba(39,23,6,0.08)' }}>‹</button>
-          <span style={{ fontSize: 13, color: weekOffset === 0 ? 'var(--coral)' : 'var(--text-light)', fontWeight: 600 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+          <ChevronButton dir="left" size={44} onClick={() => setWeekOffset(o => o - 1)} />
+          <span style={{ fontSize: 14, color: weekOffset === 0 ? 'var(--coral)' : 'var(--text-light)', fontWeight: 600, textAlign: 'center' }}>
             {weekOffset === 0 ? 'This week' : weekOffset === -1 ? 'Last week' : weekOffset === 1 ? 'Next week' : (() => {
               const mon = weekDates['mon'], sun = weekDates['sun']
               return `${new Date(mon + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} – ${new Date(sun + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`
@@ -242,8 +262,11 @@ export default function WeeklyView() {
               <button onClick={() => setWeekOffset(0)} style={{ marginLeft: 8, background: 'none', border: '1px solid var(--border-mid)', borderRadius: 6, cursor: 'pointer', color: 'var(--coral)', fontSize: 10, fontWeight: 600, padding: '2px 7px', fontFamily: 'inherit' }}>Today</button>
             )}
           </span>
-          <button onClick={() => setWeekOffset(o => o + 1)} style={{ width: 36, height: 36, borderRadius: '50%', border: 'none', background: '#fff', color: 'var(--text-light)', fontSize: 17, cursor: 'pointer', boxShadow: '0 1px 4px rgba(39,23,6,0.08)' }}>›</button>
+          <ChevronButton dir="right" size={44} onClick={() => setWeekOffset(o => o + 1)} />
         </div>
+
+        {/* Summary chips */}
+        <WeekSummaryStrip items={summaryChips} compact />
 
         {/* Compact grid */}
         <div style={{ background: 'white', borderRadius: 16, border: '1.5px solid var(--border)', boxShadow: '0 2px 10px rgba(39,23,6,0.05)', overflow: 'hidden' }}>
@@ -320,12 +343,9 @@ export default function WeeklyView() {
         </div>
 
         {/* Week navigator */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-          <button
-            onClick={() => setWeekOffset(o => o - 1)}
-            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-light)', fontSize: 18, padding: '0 4px', fontFamily: 'inherit' }}
-          >‹</button>
-          <span style={{ fontSize: 12, color: weekOffset === 0 ? 'var(--coral)' : 'var(--text-light)', fontWeight: 600 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 20, marginBottom: 18 }}>
+          <ChevronButton dir="left" size={42} onClick={() => setWeekOffset(o => o - 1)} />
+          <span style={{ fontSize: 13, color: weekOffset === 0 ? 'var(--coral)' : 'var(--text-light)', fontWeight: 600, minWidth: 140, textAlign: 'center' }}>
             {weekOffset === 0 ? 'This week' : weekOffset === -1 ? 'Last week' : weekOffset === 1 ? 'Next week' : (() => {
               const mon = weekDates['mon']
               const sun = weekDates['sun']
@@ -338,11 +358,11 @@ export default function WeeklyView() {
               >Today</button>
             )}
           </span>
-          <button
-            onClick={() => setWeekOffset(o => o + 1)}
-            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-light)', fontSize: 18, padding: '0 4px', fontFamily: 'inherit' }}
-          >›</button>
+          <ChevronButton dir="right" size={42} onClick={() => setWeekOffset(o => o + 1)} />
         </div>
+
+        {/* Summary chips */}
+        <WeekSummaryStrip items={summaryChips} />
 
         {/* Legend */}
         <div style={{ display: 'flex', gap: 18, marginBottom: 20, flexWrap: 'wrap' }}>
@@ -448,10 +468,11 @@ export default function WeeklyView() {
                     key={day.key}
                     style={{
                       background: s.bg,
-                      borderLeft: '1px solid var(--border)',
                       minHeight: 90,
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      ...(status === 'empty' ? { border: '1.5px dashed transparent' } : {}),
+                      // Longhand only — mixing the `border` shorthand with
+                      // `borderLeft` makes React's style diffing unreliable.
+                      borderLeft: status === 'empty' ? '1px solid transparent' : '1px solid var(--border)',
                     }}
                   >
                     {s.dot ? (

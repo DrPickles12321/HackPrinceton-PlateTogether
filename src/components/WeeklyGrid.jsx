@@ -1,5 +1,7 @@
 import { useState } from 'react'
 import NutritionBadge from './NutritionBadge'
+import ChevronButton from './ChevronButton'
+import { localIsoDate } from '../lib/constants'
 
 const DAYS = [
   { key: 'mon', label: 'Mon' },
@@ -22,7 +24,7 @@ const SLOT_BASE = 'border rounded-lg p-2 min-h-[80px] transition-colors duration
 const STATUS_DOT = { okay: 'bg-green-500', difficult: 'bg-yellow-500', refused: 'bg-red-500', skipped: 'bg-stone-400' }
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
 
-const TODAY_ISO = new Date().toISOString().slice(0, 10)
+const TODAY_ISO = localIsoDate()
 
 function getWeekDates(offset = 0) {
   const today = new Date()
@@ -91,10 +93,7 @@ export default function WeeklyGrid({ onDayClick, parentNotes = [], onMarkNoteRea
     <div className="flex-1 overflow-auto p-4">
       {/* Week navigation */}
       <div className="flex items-center justify-between mb-3 px-1">
-        <button
-          onClick={() => setWeekOffset(o => o - 1)}
-          className="text-gray-400 hover:text-gray-700 text-xl px-2 py-1 rounded transition-colors"
-        >‹</button>
+        <ChevronButton dir="left" size={40} onClick={() => setWeekOffset(o => o - 1)} />
         <span className="text-sm font-semibold flex items-center gap-2" style={{ color: weekOffset === 0 ? '#E8735A' : '#6b7280' }}>
           {weekLabel}
           {weekOffset !== 0 && (
@@ -104,10 +103,7 @@ export default function WeeklyGrid({ onDayClick, parentNotes = [], onMarkNoteRea
             >Today</button>
           )}
         </span>
-        <button
-          onClick={() => setWeekOffset(o => o + 1)}
-          className="text-gray-400 hover:text-gray-700 text-xl px-2 py-1 rounded transition-colors"
-        >›</button>
+        <ChevronButton dir="right" size={40} onClick={() => setWeekOffset(o => o + 1)} />
       </div>
 
       <div className="overflow-x-auto -mx-4 px-4 md:mx-0 md:px-0">
@@ -117,7 +113,7 @@ export default function WeeklyGrid({ onDayClick, parentNotes = [], onMarkNoteRea
             <div />
             {DAYS.map((day, i) => {
               const d = weekDates[i]
-              const dateIso = d.toISOString().slice(0, 10)
+              const dateIso = localIsoDate(d)
               const isToday = dateIso === TODAY_ISO
               const dateStr = `${MONTHS[d.getMonth()]} ${d.getDate()}`
               const clickable = !!onDayClick
@@ -148,7 +144,7 @@ export default function WeeklyGrid({ onDayClick, parentNotes = [], onMarkNoteRea
                 {meal.label}
               </div>
               {DAYS.map((day, i) => {
-                const dateIso = weekDates[i].toISOString().slice(0, 10)
+                const dateIso = localIsoDate(weekDates[i])
                 const items = (parentMealItems[dateIso] || {})[meal.key] || []
                 const status = (mealStatuses[dateIso] || {})[meal.key] || null
                 return (
@@ -169,7 +165,7 @@ export default function WeeklyGrid({ onDayClick, parentNotes = [], onMarkNoteRea
               Parent Notes
             </div>
             {DAYS.map((day, i) => {
-              const dateIso = weekDates[i].toISOString().slice(0, 10)
+              const dateIso = localIsoDate(weekDates[i])
               const note = parentNotes.find(n => n.date === dateIso)
               const isUnread = note && !note.read_at
               return (

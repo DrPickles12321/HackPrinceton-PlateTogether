@@ -6,8 +6,40 @@ import { detectWeeklyAnomalies } from '../lib/anomalyDetection'
 import { useFirebaseData } from '../contexts/FirebaseDataContext'
 import { useIsMobile } from '../hooks/useIsMobile'
 import { computeWeekStats } from '../lib/weekStats'
+import { daySummaries, localIsoDate } from '../lib/weekSummary'
+import DailyRhythm from '../components/DailyRhythm'
 
 const MEAL_LABELS = { breakfast: 'Breakfast', lunch: 'Lunch', snack: 'Snack', dinner: 'Dinner' }
+// Local date, NOT toISOString(): getWeekIsoDates builds this week's dates from
+// local parts, so the today-highlight must use the same convention or it lands
+// on the wrong bar in the evening (US timezones).
+const TODAY_ISO = localIsoDate()
+
+// Card wrapping the weekly stacked-bar chart. Shared by both layouts.
+function DailyRhythmCard({ summaries, compact = false }) {
+  const weekLogged = summaries.reduce((a, d) => a + d.logged, 0)
+  return (
+    <div style={{
+      background: 'white', borderRadius: compact ? 18 : 22, border: '1.5px solid var(--border)',
+      padding: compact ? '20px' : '24px 22px', boxShadow: '0 3px 14px rgba(39,23,6,0.06)',
+      marginTop: compact ? 12 : 22, ...(compact ? { marginBottom: 12 } : {}),
+    }}>
+      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 16, gap: 8, flexWrap: 'wrap' }}>
+        <div>
+          <div style={{ fontWeight: 700, fontSize: compact ? 14 : 16, color: 'var(--text-dark)' }}>Daily Rhythm</div>
+          <div style={{ fontSize: compact ? 11 : 12, color: 'var(--text-light)', marginTop: 2 }}>How each day of the week is going</div>
+        </div>
+        <span style={{ fontSize: 12, color: 'var(--text-mid)', fontWeight: 600 }}>{weekLogged} meal{weekLogged === 1 ? '' : 's'}</span>
+      </div>
+      {weekLogged === 0 && (
+        <p style={{ fontSize: 13, color: 'var(--text-light)', fontStyle: 'italic', textAlign: 'center', padding: '4px 0 14px', margin: 0 }}>
+          Nothing logged yet this week — add a meal on the Today tab and this will start to bloom 🌱
+        </p>
+      )}
+      <DailyRhythm summaries={summaries} todayIso={TODAY_ISO} compact={compact} />
+    </div>
+  )
+}
 
 function ProgressStat({ label, current, previous, unit = '', inverse = false }) {
   const delta = current - previous
@@ -172,6 +204,11 @@ export default function StatsView() {
 
   const hasLastWeekData = lastWeekStats.total > 0
 
+  const dailySummaries = useMemo(
+    () => daySummaries(mealStatuses, thisWeekDates),
+    [mealStatuses, thisWeekDates]
+  )
+
   const circumference = 2 * Math.PI * 38
 
   const messages = [
@@ -253,6 +290,9 @@ export default function StatsView() {
             <div style={{ height: '100%', borderRadius: 4, background: 'linear-gradient(90deg, var(--pink) 0%, var(--coral) 100%)', width: `${stats.hardestPct}%`, transition: 'width 0.7s ease' }} />
           </div>
         </div>
+
+        {/* Daily rhythm */}
+        <DailyRhythmCard summaries={dailySummaries} compact />
 
         {/* Weekly progress */}
         {hasLastWeekData && (
@@ -431,11 +471,14 @@ export default function StatsView() {
           ))}
         </div>
 
+        {/* Daily rhythm */}
+        <DailyRhythmCard summaries={dailySummaries} />
+
         {/* Weekly Progress */}
         {hasLastWeekData && (
           <div style={{
             background: 'white', borderRadius: 22, border: '1.5px solid var(--border)',
-            padding: '24px 22px', boxShadow: '0 3px 14px rgba(39,23,6,0.06)',
+            padding: '24px 22px', boxShadow: '0 3px 14px rgba(39,23,6,0.06)', marginTop: 22,
           }}>
             <div style={{
               fontSize: 10, fontWeight: 700, color: 'var(--text-light)',
