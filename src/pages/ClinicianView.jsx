@@ -1,5 +1,7 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useFirebaseData } from '../contexts/FirebaseDataContext'
+import { computeWeeklyTrend } from '../lib/trends'
+import TrendChart from '../components/TrendChart'
 import { generateClinicianDigest } from '../lib/aiInsights'
 import { getWeekIsoDates } from '../lib/insights'
 import { detectWeeklyAnomalies } from '../lib/anomalyDetection'
@@ -325,6 +327,7 @@ export default function ClinicianView() {
   const [addCodeError, setAddCodeError]  = useState('')
   const [addCodeLoading, setAddCodeLoading] = useState(false)
   const [selectedDay, setSelectedDay] = useState(null)
+  const trend = useMemo(() => computeWeeklyTrend({ mealStatuses: parentMealStatuses }), [parentMealStatuses])
   const isMobile = useIsMobile()
 
   useEffect(() => { document.title = 'Dashboard · Plate Together' }, [])
@@ -459,6 +462,18 @@ export default function ClinicianView() {
 
           <RevealSection eyebrow="Progress" delay={1}>
             <WeeklyInsights allMealItems={parentMealItems} mealStatuses={parentMealStatuses} />
+          </RevealSection>
+
+          <RevealSection eyebrow="Progress over time">
+            <SectionCard>
+              <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 12, flexWrap: 'wrap', gap: 8 }}>
+                <div style={{ fontWeight: 700, fontSize: 15, color: 'var(--text-dark)' }}>Last 6 weeks</div>
+                <span style={{ fontSize: 12, color: 'var(--text-light)' }}>Meals logged and okay-rate per week</span>
+              </div>
+              {trend.some(w => w.logged > 0)
+                ? <TrendChart trend={trend} />
+                : <p style={{ fontSize: 13, color: 'var(--text-light)', fontStyle: 'italic', margin: 0 }}>No logged weeks yet.</p>}
+            </SectionCard>
           </RevealSection>
 
           <RevealSection eyebrow="Clinical digest">

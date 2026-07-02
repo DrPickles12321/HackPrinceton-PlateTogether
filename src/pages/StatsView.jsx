@@ -8,6 +8,8 @@ import { useIsMobile } from '../hooks/useIsMobile'
 import { computeWeekStats } from '../lib/weekStats'
 import { daySummaries, localIsoDate } from '../lib/weekSummary'
 import DailyRhythm from '../components/DailyRhythm'
+import { computeWeeklyTrend } from '../lib/trends'
+import TrendChart from '../components/TrendChart'
 
 const MEAL_LABELS = { breakfast: 'Breakfast', lunch: 'Lunch', snack: 'Snack', dinner: 'Dinner' }
 // Local date, NOT toISOString(): getWeekIsoDates builds this week's dates from
@@ -37,6 +39,35 @@ function DailyRhythmCard({ summaries, compact = false }) {
         </p>
       )}
       <DailyRhythm summaries={summaries} todayIso={TODAY_ISO} compact={compact} />
+    </div>
+  )
+}
+
+// Multi-week progress card. Shared by both layouts.
+function TrendCard({ trend, compact = false }) {
+  const weeksWithData = trend.filter(w => w.logged > 0).length
+  return (
+    <div style={{
+      background: 'white', borderRadius: compact ? 18 : 22, border: '1.5px solid var(--border)',
+      padding: compact ? '20px' : '24px 22px', boxShadow: '0 3px 14px rgba(39,23,6,0.06)',
+      marginTop: compact ? 12 : 22,
+    }}>
+      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 14, gap: 8, flexWrap: 'wrap' }}>
+        <div>
+          <div style={{ fontWeight: 700, fontSize: compact ? 14 : 16, color: 'var(--text-dark)' }}>Progress Over Time</div>
+          <div style={{ fontSize: compact ? 11 : 12, color: 'var(--text-light)', marginTop: 2 }}>The last {trend.length} weeks, side by side</div>
+        </div>
+        <span style={{ fontSize: 12, color: 'var(--text-mid)', fontWeight: 600 }}>
+          {weeksWithData} week{weeksWithData === 1 ? '' : 's'} with logs
+        </span>
+      </div>
+      {weeksWithData === 0 ? (
+        <p style={{ fontSize: 13, color: 'var(--text-light)', fontStyle: 'italic', textAlign: 'center', padding: '10px 0', margin: 0 }}>
+          Once a couple of weeks are logged, the bigger picture shows up here 🌱
+        </p>
+      ) : (
+        <TrendChart trend={trend} compact={compact} />
+      )}
     </div>
   )
 }
@@ -209,6 +240,8 @@ export default function StatsView() {
     [mealStatuses, thisWeekDates]
   )
 
+  const trend = useMemo(() => computeWeeklyTrend({ mealStatuses }), [mealStatuses])
+
   const circumference = 2 * Math.PI * 38
 
   const messages = [
@@ -293,6 +326,9 @@ export default function StatsView() {
 
         {/* Daily rhythm */}
         <DailyRhythmCard summaries={dailySummaries} compact />
+
+        {/* Multi-week trend */}
+        <TrendCard trend={trend} compact />
 
         {/* Weekly progress */}
         {hasLastWeekData && (
@@ -473,6 +509,9 @@ export default function StatsView() {
 
         {/* Daily rhythm */}
         <DailyRhythmCard summaries={dailySummaries} />
+
+        {/* Multi-week trend */}
+        <TrendCard trend={trend} />
 
         {/* Weekly Progress */}
         {hasLastWeekData && (
