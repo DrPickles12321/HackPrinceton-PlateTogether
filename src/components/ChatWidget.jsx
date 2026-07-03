@@ -9,7 +9,7 @@ const GREETING = { role: 'assistant', content: 'Hi! I can recap how this week we
 export default function ChatWidget() {
   // ChatWidget renders as a sibling of <Outlet> (not inside it), so it reads
   // data straight from the context provider, not useOutletContext.
-  const { mealStatuses = {}, allMealItems = {}, sendSos, mySos = [] } = useFirebaseData()
+  const { mealStatuses = {}, allMealItems = {}, mealDistress = {}, sendSos, mySos = [] } = useFirebaseData()
   const isMobile = useIsMobile()
   // On mobile, clear the ~62px bottom tab bar; on desktop there's no tab bar.
   const bubbleBottom = `calc(${isMobile ? 78 : 18}px + env(safe-area-inset-bottom))`
@@ -24,7 +24,7 @@ export default function ChatWidget() {
   const [sosSent, setSosSent] = useState(false)
   const scrollRef = useRef(null)
 
-  const weekFacts = useMemo(() => buildWeekFacts({ mealStatuses, allMealItems }), [mealStatuses, allMealItems])
+  const weekFacts = useMemo(() => buildWeekFacts({ mealStatuses, allMealItems, mealDistress }), [mealStatuses, allMealItems, mealDistress])
 
   // Unread dot when a care-team response arrived and the panel is closed.
   const latestResponseAt = useMemo(() => {

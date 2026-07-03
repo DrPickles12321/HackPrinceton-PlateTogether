@@ -53,4 +53,23 @@ export function weekSummary(summaries = []) {
   return { logged, totalSlots, okay, okayPct }
 }
 
+// Week-level distress averages. mealDistress: { [date]: { [meal]: {pre?, post?} } }.
+// Averages are computed independently for pre and post (a meal may have only one),
+// rounded to one decimal; null when no ratings of that kind exist.
+export function computeDistressSummary(mealDistress = {}, isoDates = []) {
+  const pres = []
+  const posts = []
+  let count = 0
+  for (const iso of isoDates) {
+    for (const d of Object.values(mealDistress[iso] || {})) {
+      if (!d || (!d.pre && !d.post)) continue
+      count += 1
+      if (d.pre) pres.push(d.pre)
+      if (d.post) posts.push(d.post)
+    }
+  }
+  const avg = arr => arr.length ? Math.round((arr.reduce((a, b) => a + b, 0) / arr.length) * 10) / 10 : null
+  return { count, avgPre: avg(pres), avgPost: avg(posts) }
+}
+
 export { MEAL_KEYS, STATUS_KEYS }

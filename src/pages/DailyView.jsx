@@ -10,6 +10,7 @@ import { lookupNutrition } from '../lib/nutritionService'
 import { useNutritionalTargets } from '../contexts/NutritionalTargetsContext'
 import { useFirebaseData } from '../contexts/FirebaseDataContext'
 import { getWeekDates, localIsoDate } from '../lib/constants'
+import DistressScale from '../components/DistressScale'
 
 const DAYS = [
   { key: 'mon', label: 'Mon' },
@@ -170,7 +171,7 @@ function DropZone({ mealType, items, onRemove, onFoodClick, selectedFoodIndex, i
 
 // ─── Meal card ────────────────────────────────────────────────────────────────
 
-function MealCard({ meal, items, onRemove, latestLog, onQuickLog, time, onTimeChange, selectedFoodIndex, onFoodClick, onFoodStatusSet }) {
+function MealCard({ meal, items, onRemove, latestLog, onQuickLog, time, onTimeChange, selectedFoodIndex, onFoodClick, onFoodStatusSet, distress, onDistressSet }) {
   const loggedStatus = latestLog?.status || null
   const hasItems = items.length > 0
   const initialTime = parseTimeValue(time)
@@ -311,6 +312,10 @@ function MealCard({ meal, items, onRemove, latestLog, onQuickLog, time, onTimeCh
           </div>
         </div>
 
+        {loggedStatus && loggedStatus !== 'skipped' && (
+          <DistressScale distress={distress} onSet={onDistressSet} />
+        )}
+
         {selectedFoodIndex != null && (
           <div
             onClick={e => e.stopPropagation()}
@@ -377,6 +382,7 @@ function MobileMealCard({
   meal, items, latestLog, onQuickLog, time, onTimeChange,
   expanded, onToggleExpand, onOpenAddFood, onRemove,
   selectedFoodIndex, onFoodClick, onFoodStatusSet,
+  distress, onDistressSet,
 }) {
   const loggedStatus = latestLog?.status || null
   const hasItems = items.length > 0
@@ -582,6 +588,12 @@ function MobileMealCard({
               )
             })}
           </div>
+
+          {loggedStatus && loggedStatus !== 'skipped' && (
+            <div style={{ marginTop: 10 }}>
+              <DistressScale distress={distress} onSet={onDistressSet} compact />
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -1128,6 +1140,7 @@ export default function DailyView() {
     allMealItems, setMealItems,
     mealTimesByDate, updateMealTime,
     prescribedSupplements,
+    mealDistress, setMealDistress,
   } = useFirebaseData()
 
   const weekDates = useMemo(() => getWeekDates(weekOffset), [weekOffset])
@@ -1286,6 +1299,8 @@ export default function DailyView() {
                   onQuickLog={status => handleQuickLog(meal.key, status)}
                   time={mealTimes[meal.key]}
                   onTimeChange={(mealType, value) => updateMealTime(selectedDate, mealType, value)}
+                  distress={mealDistress?.[selectedDate]?.[meal.key] || null}
+                  onDistressSet={patch => setMealDistress(selectedDate, meal.key, patch)}
                   expanded={expandedMeal === meal.key}
                   onToggleExpand={() => setExpandedMeal(prev => prev === meal.key ? null : meal.key)}
                   onOpenAddFood={() => setAddFoodSheetMeal(meal.key)}
@@ -1463,6 +1478,8 @@ export default function DailyView() {
                   onQuickLog={status => handleQuickLog(meal.key, status)}
                   time={mealTimes[meal.key]}
                   onTimeChange={(mealType, value) => updateMealTime(selectedDate, mealType, value)}
+                  distress={mealDistress?.[selectedDate]?.[meal.key] || null}
+                  onDistressSet={patch => setMealDistress(selectedDate, meal.key, patch)}
                   selectedFoodIndex={selectedFood?.mealType === meal.key ? selectedFood.index : null}
                   onFoodClick={index => setSelectedFood(
                     selectedFood?.mealType === meal.key && selectedFood?.index === index

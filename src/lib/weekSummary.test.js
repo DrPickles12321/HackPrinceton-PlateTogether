@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { daySummaries, longestStreak, weekSummary, localIsoDate } from './weekSummary'
+import { daySummaries, longestStreak, weekSummary, localIsoDate, computeDistressSummary } from './weekSummary'
 
 const ISO = ['2026-06-29', '2026-06-30', '2026-07-01', '2026-07-02', '2026-07-03', '2026-07-04', '2026-07-05']
 
@@ -44,6 +44,34 @@ describe('longestStreak', () => {
 
   it('counts a single logged day as 1', () => {
     expect(longestStreak(daySummaries({ '2026-07-02': { lunch: 'okay' } }, ISO))).toBe(1)
+  })
+})
+
+describe('computeDistressSummary', () => {
+  it('averages pre and post across the week, one decimal', () => {
+    const mealDistress = {
+      '2026-06-29': { breakfast: { pre: 4, post: 2 }, dinner: { pre: 5, post: 3 } },
+      '2026-07-01': { lunch: { pre: 3, post: 1 } },
+      '2026-07-06': { lunch: { pre: 5, post: 5 } }, // outside the week — ignored
+    }
+    const s = computeDistressSummary(mealDistress, ISO)
+    expect(s.count).toBe(3)
+    expect(s.avgPre).toBe(4)
+    expect(s.avgPost).toBe(2)
+  })
+
+  it('handles partial ratings (pre only / post only)', () => {
+    const mealDistress = {
+      '2026-06-30': { breakfast: { pre: 3 }, lunch: { post: 2 } },
+    }
+    const s = computeDistressSummary(mealDistress, ISO)
+    expect(s.count).toBe(2)
+    expect(s.avgPre).toBe(3)
+    expect(s.avgPost).toBe(2)
+  })
+
+  it('returns nulls when nothing is rated', () => {
+    expect(computeDistressSummary({}, ISO)).toEqual({ count: 0, avgPre: null, avgPost: null })
   })
 })
 

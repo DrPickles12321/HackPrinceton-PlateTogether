@@ -6,7 +6,7 @@ import { detectWeeklyAnomalies } from '../lib/anomalyDetection'
 import { useFirebaseData } from '../contexts/FirebaseDataContext'
 import { useIsMobile } from '../hooks/useIsMobile'
 import { computeWeekStats } from '../lib/weekStats'
-import { daySummaries, localIsoDate } from '../lib/weekSummary'
+import { daySummaries, localIsoDate, computeDistressSummary } from '../lib/weekSummary'
 import DailyRhythm from '../components/DailyRhythm'
 import { computeWeeklyTrend } from '../lib/trends'
 import TrendChart from '../components/TrendChart'
@@ -39,6 +39,50 @@ function DailyRhythmCard({ summaries, compact = false }) {
         </p>
       )}
       <DailyRhythm summaries={summaries} todayIso={TODAY_ISO} compact={compact} />
+    </div>
+  )
+}
+
+// Distress check-ins card: average before → after this week. Shared by both layouts.
+function DistressCard({ summary, compact = false }) {
+  if (!summary || summary.count === 0) return null
+  const { count, avgPre, avgPost } = summary
+  const improved = avgPre != null && avgPost != null && avgPost < avgPre
+  const arrow = avgPre != null && avgPost != null ? (avgPost < avgPre ? '↓' : avgPost > avgPre ? '↑' : '→') : ''
+  return (
+    <div style={{
+      background: 'white', borderRadius: compact ? 18 : 22, border: '1.5px solid var(--border)',
+      padding: compact ? '20px' : '24px 22px', boxShadow: '0 3px 14px rgba(39,23,6,0.06)',
+      marginTop: compact ? 12 : 22,
+    }}>
+      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 14, gap: 8, flexWrap: 'wrap' }}>
+        <div>
+          <div style={{ fontWeight: 700, fontSize: compact ? 14 : 16, color: 'var(--text-dark)' }}>Distress Check-ins</div>
+          <div style={{ fontSize: compact ? 11 : 12, color: 'var(--text-light)', marginTop: 2 }}>How hard meals felt, before and after eating</div>
+        </div>
+        <span style={{ fontSize: 12, color: 'var(--text-mid)', fontWeight: 600 }}>{count} rated</span>
+      </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+          <span style={{ fontSize: 12, color: 'var(--text-mid)' }}>Before</span>
+          <span className="font-lora" style={{ fontSize: compact ? 26 : 30, color: 'var(--text-dark)', lineHeight: 1 }}>{avgPre ?? '—'}</span>
+        </div>
+        <span style={{ fontSize: 20, color: improved ? 'var(--mint)' : 'var(--text-light)' }}>→</span>
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+          <span style={{ fontSize: 12, color: 'var(--text-mid)' }}>After</span>
+          <span className="font-lora" style={{ fontSize: compact ? 26 : 30, color: improved ? 'var(--mint)' : 'var(--text-dark)', lineHeight: 1 }}>{avgPost ?? '—'}</span>
+        </div>
+        {arrow && (
+          <span style={{
+            fontSize: 12, fontWeight: 700, padding: '4px 10px', borderRadius: 9,
+            color: improved ? 'var(--mint)' : 'var(--text-mid)',
+            background: improved ? 'var(--mint-light)' : 'var(--surface-warm)',
+            border: `1px solid ${improved ? 'var(--mint-mid)' : 'var(--border)'}`,
+          }}>
+            {arrow} {improved ? 'eases after eating' : 'on a 1–5 scale'}
+          </span>
+        )}
+      </div>
     </div>
   )
 }
@@ -205,7 +249,7 @@ function AIInsightsSection({ weekStatuses, allMealItems = {}, mealStatuses = {},
 
 export default function StatsView() {
   const { mealStatuses = {}, allMealItems = {} } = useOutletContext()
-  const { mealTimesByDate = {} } = useFirebaseData()
+  const { mealTimesByDate = {}, mealDistress = {} } = useFirebaseData()
   const isMobile = useIsMobile()
 
   const thisWeekDates = useMemo(() => getWeekIsoDates(0), [])
@@ -241,6 +285,11 @@ export default function StatsView() {
   )
 
   const trend = useMemo(() => computeWeeklyTrend({ mealStatuses }), [mealStatuses])
+
+  const distressSummary = useMemo(
+    () => computeDistressSummary(mealDistress, thisWeekDates),
+    [mealDistress, thisWeekDates]
+  )
 
   const circumference = 2 * Math.PI * 38
 
@@ -326,6 +375,9 @@ export default function StatsView() {
 
         {/* Daily rhythm */}
         <DailyRhythmCard summaries={dailySummaries} compact />
+
+        {/* Distress check-ins */}
+        <DistressCard summary={distressSummary} compact />
 
         {/* Multi-week trend */}
         <TrendCard trend={trend} compact />
@@ -509,6 +561,9 @@ export default function StatsView() {
 
         {/* Daily rhythm */}
         <DailyRhythmCard summaries={dailySummaries} />
+
+        {/* Distress check-ins */}
+        <DistressCard summary={distressSummary} />
 
         {/* Multi-week trend */}
         <TrendCard trend={trend} />

@@ -22,8 +22,9 @@ function normalizeMealData(val) {
     result[date] = {}
     for (const [mealType, data] of Object.entries(meals || {})) {
       result[date][mealType] = {
-        items:  fbToArr(data?.items),
-        status: data?.status || null,
+        items:    fbToArr(data?.items),
+        status:   data?.status || null,
+        distress: data?.distress || null,
       }
     }
   }
@@ -47,6 +48,21 @@ function deriveMealStatuses(fbMealData) {
     out[date] = {}
     for (const [mealType, data] of Object.entries(meals)) {
       if (data.status) out[date][mealType] = data.status
+    }
+  }
+  return out
+}
+
+// { [date]: { [mealType]: { pre?, post? } } } — only entries with a rating.
+function deriveMealDistress(fbMealData) {
+  const out = {}
+  for (const [date, meals] of Object.entries(fbMealData)) {
+    for (const [mealType, data] of Object.entries(meals)) {
+      const d = data.distress
+      if (d && (d.pre || d.post)) {
+        if (!out[date]) out[date] = {}
+        out[date][mealType] = d
+      }
     }
   }
   return out
@@ -236,6 +252,7 @@ export function FirebaseDataProvider({ children }) {
   const nutritionalTargets     = viewingPatientUid ? patientNutritionalTargets : ownNutritionalTargets
   const allMealItems           = deriveMealItems(activeFbMealData)
   const mealStatuses           = deriveMealStatuses(activeFbMealData)
+  const mealDistress           = deriveMealDistress(activeFbMealData)
   const activeParentNotesByDate = viewingPatientUid ? patientParentNotesByDate : parentNotesByDate
   const parentNotesArray       = Object.values(activeParentNotesByDate)
   const prescribedSupplements  = viewingPatientUid ? patientPrescribedSupplements : ownPrescribedSupplements
@@ -266,6 +283,25 @@ export function FirebaseDataProvider({ children }) {
         [mealType]: { ...(prev[date]?.[mealType] || {}), status },
       },
     }))
+  }
+
+  // patch is { pre: 1-5|null } or { post: 1-5|null }; null clears a rating
+  // (RTDB update() deletes keys set to null).
+  function setMealDistress(date, mealType, patch) {
+    if (!uid) return
+    update(ref(db, `users/${uid}/mealLogs/${date}/${mealType}/distress`), patch)
+    setFbMealData(prev => {
+      const meal = prev[date]?.[mealType] || {}
+      const merged = { ...(meal.distress || {}), ...patch }
+      for (const k of Object.keys(merged)) if (merged[k] == null) delete merged[k]
+      return {
+        ...prev,
+        [date]: {
+          ...(prev[date] || {}),
+          [mealType]: { ...meal, distress: Object.keys(merged).length ? merged : null },
+        },
+      }
+    })
   }
 
   function saveNutritionalTargets(next) {
@@ -502,6 +538,8 @@ export function FirebaseDataProvider({ children }) {
       deleteClinicianNote,
       setMealItems,
       setMealStatus,
+      mealDistress,
+      setMealDistress,
       familyCode,
       patients,
       prescribedSupplements,

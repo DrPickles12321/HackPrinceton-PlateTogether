@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useFirebaseData } from '../contexts/FirebaseDataContext'
 import { computeWeeklyTrend } from '../lib/trends'
 import TrendChart from '../components/TrendChart'
+import { computeDistressSummary } from '../lib/weekSummary'
 import { generateClinicianDigest } from '../lib/aiInsights'
 import { getWeekIsoDates } from '../lib/insights'
 import { detectWeeklyAnomalies } from '../lib/anomalyDetection'
@@ -307,6 +308,7 @@ export default function ClinicianView() {
     parentNotesArray: parentNotes,
     allMealItems: parentMealItems,
     mealStatuses: parentMealStatuses,
+    mealDistress: parentMealDistress,
     activeMealTimesByDate: parentMealTimesByDate,
     clinicianNotesRead,
     markPatientParentNoteReadById,
@@ -328,6 +330,10 @@ export default function ClinicianView() {
   const [addCodeLoading, setAddCodeLoading] = useState(false)
   const [selectedDay, setSelectedDay] = useState(null)
   const trend = useMemo(() => computeWeeklyTrend({ mealStatuses: parentMealStatuses }), [parentMealStatuses])
+  const distressSummary = useMemo(
+    () => computeDistressSummary(parentMealDistress, getWeekIsoDates(0)),
+    [parentMealDistress]
+  )
   const isMobile = useIsMobile()
 
   useEffect(() => { document.title = 'Dashboard · Plate Together' }, [])
@@ -470,6 +476,17 @@ export default function ClinicianView() {
                 <div style={{ fontWeight: 700, fontSize: 15, color: 'var(--text-dark)' }}>Last 6 weeks</div>
                 <span style={{ fontSize: 12, color: 'var(--text-light)' }}>Meals logged and okay-rate per week</span>
               </div>
+              {distressSummary.count > 0 && (
+                <div style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 8, marginBottom: 14,
+                  background: 'var(--surface-warm)', border: '1px solid var(--border)',
+                  borderRadius: 10, padding: '7px 12px', fontSize: 13, color: 'var(--text-mid)',
+                }}>
+                  <span style={{ fontWeight: 700, color: 'var(--text-dark)' }}>Distress this week:</span>
+                  before {distressSummary.avgPre ?? '—'} → after {distressSummary.avgPost ?? '—'}
+                  <span style={{ fontSize: 11, color: 'var(--text-light)' }}>({distressSummary.count} rated, 1–5)</span>
+                </div>
+              )}
               {trend.some(w => w.logged > 0)
                 ? <TrendChart trend={trend} />
                 : <p style={{ fontSize: 13, color: 'var(--text-light)', fontStyle: 'italic', margin: 0 }}>No logged weeks yet.</p>}
