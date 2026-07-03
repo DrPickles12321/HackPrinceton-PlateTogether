@@ -357,7 +357,7 @@ export default function ClinicianView() {
   }
 
   return (
-    <div style={{ maxWidth: 1280, margin: '0 auto', padding: isMobile ? '28px 16px 64px' : '52px 48px 80px' }}>
+    <div style={{ maxWidth: 1280, width: '100%', margin: '0 auto', minWidth: 0, boxSizing: 'border-box', padding: isMobile ? '28px 16px 64px' : '52px 48px 80px' }}>
 
       {/* ── Page header ─────────────────────────────────────────────────── */}
       <div style={{
