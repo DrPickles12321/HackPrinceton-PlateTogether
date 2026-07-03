@@ -104,7 +104,7 @@ function MyFoodsPicker({ foods, sortMode, inMealIds, onTap, onInfo }) {
 }
 
 export default function AddFoodSheet({ open, onClose, mealLabel, mealItems = [], onAddToMeal, onRemoveFromMeal }) {
-  const { foodItems, addFoodItem, setFoodNutrition, resetFoodNutrition } = useFirebaseData()
+  const { foodItems, addFoodItem, setFoodNutrition, resetFoodNutrition, assignedChallenges } = useFirebaseData()
   const [tab, setTab] = useState('mine')
   const [sortMode, setSortMode] = useState('category')
   const [factsFood, setFactsFood] = useState(null)
@@ -204,7 +204,7 @@ export default function AddFoodSheet({ open, onClose, mealLabel, mealItems = [],
           <MyFoodsPicker foods={foodItems} sortMode={sortMode} inMealIds={inMealIds} onTap={toggle} onInfo={setFactsFood} />
         </>
       ) : (
-        <SuggestedFoods onAdd={handleAddNewOrSuggested} existingNames={existingNames} buttonSize={40} />
+        <SuggestedFoods onAdd={handleAddNewOrSuggested} existingNames={existingNames} buttonSize={40} assignedChallenges={assignedChallenges} />
       )}
     </BottomSheet>
 

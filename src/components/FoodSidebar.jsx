@@ -259,7 +259,7 @@ function SuggestRow({ name, buttonSize, dotSize, onAdd, extra }) {
   )
 }
 
-export function SuggestedFoods({ onAdd, existingNames, buttonSize = 22 }) {
+export function SuggestedFoods({ onAdd, existingNames, buttonSize = 22, assignedChallenges = [] }) {
   const [query, setQuery] = useState('')
   const [usdaResults, setUsdaResults] = useState([])
   const [searching, setSearching] = useState(false)
@@ -318,6 +318,44 @@ export function SuggestedFoods({ onAdd, existingNames, buttonSize = 22 }) {
         </p>
       )}
 
+      {/* Clinician-assigned challenge foods, pinned above everything else. */}
+      {(() => {
+        const pinned = assignedChallenges.filter(c =>
+          !existingLower.has(c.name.toLowerCase()) && (!q || prefixRank(c.name, q) > 0)
+        )
+        if (pinned.length === 0) return null
+        return (
+          <div style={{ marginBottom: 14 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--pink)', letterSpacing: '0.4px', textTransform: 'uppercase', marginBottom: 7 }}>
+              🎯 From your clinician
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+              {pinned.map(c => (
+                <div key={c.id} style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                  background: 'var(--pink-light)', border: '1.5px solid var(--pink-mid)',
+                  borderRadius: 11, padding: '8px 10px', gap: 8,
+                }}>
+                  <span style={{ fontSize: 13, color: 'var(--text-dark)', fontWeight: 600, flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {c.name}
+                  </span>
+                  <button
+                    onClick={() => onAdd({ name: c.name, category: 'challenge' })}
+                    aria-label={`Add challenge food ${c.name}`}
+                    style={{
+                      border: 'none', borderRadius: 9, padding: '6px 12px',
+                      background: 'var(--pink)', color: 'white', fontSize: 12, fontWeight: 600,
+                      cursor: 'pointer', flexShrink: 0, minHeight: Math.max(buttonSize, 28),
+                      fontFamily: "'Outfit', sans-serif",
+                    }}
+                  >+ Add</button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )
+      })()}
+
       {curatedNamesList.length > 0 && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 5, marginBottom: 14 }}>
           {curatedNamesList.map(name => (
@@ -349,7 +387,7 @@ export function SuggestedFoods({ onAdd, existingNames, buttonSize = 22 }) {
 }
 
 export default function FoodSidebar() {
-  const { foodItems, addFoodItem, deleteFoodItem, updateFoodItemCategory } = useFirebaseData()
+  const { foodItems, addFoodItem, deleteFoodItem, updateFoodItemCategory, assignedChallenges } = useFirebaseData()
   const [tab, setTab] = useState('mine')
 
   function handleAddFood(payload) {
@@ -410,7 +448,7 @@ export default function FoodSidebar() {
           </div>
         </>
       ) : (
-        <SuggestedFoods onAdd={handleAddFood} existingNames={existingNames} />
+        <SuggestedFoods onAdd={handleAddFood} existingNames={existingNames} assignedChallenges={assignedChallenges} />
       )}
     </div>
   )

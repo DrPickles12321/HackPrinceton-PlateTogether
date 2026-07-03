@@ -3,6 +3,7 @@ import { useFirebaseData } from '../contexts/FirebaseDataContext'
 import { computeWeeklyTrend } from '../lib/trends'
 import TrendChart from '../components/TrendChart'
 import { computeDistressSummary } from '../lib/weekSummary'
+import ChallengeAssigner from '../components/ChallengeAssigner'
 import { generateClinicianDigest } from '../lib/aiInsights'
 import { getWeekIsoDates } from '../lib/insights'
 import { detectWeeklyAnomalies } from '../lib/anomalyDetection'
@@ -323,6 +324,9 @@ export default function ClinicianView() {
     patientSos,
     patientsWithOpenSos,
     acknowledgeSos,
+    assignedChallenges,
+    addAssignedChallenge,
+    removeAssignedChallenge,
   } = useFirebaseData()
 
   const [addCodeInput, setAddCodeInput] = useState('')
@@ -508,6 +512,16 @@ export default function ClinicianView() {
           <RevealSection eyebrow="Parent notes" delay={1}>
             <SectionCard>
               <ParentNotesPanel notes={parentNotes} onMarkRead={markPatientParentNoteReadById} />
+            </SectionCard>
+          </RevealSection>
+
+          <RevealSection eyebrow="Challenge foods">
+            <SectionCard>
+              <ChallengeAssigner
+                challenges={assignedChallenges}
+                onAdd={addAssignedChallenge}
+                onRemove={removeAssignedChallenge}
+              />
             </SectionCard>
           </RevealSection>
 

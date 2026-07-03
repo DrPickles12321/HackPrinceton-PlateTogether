@@ -89,6 +89,8 @@ export function FirebaseDataProvider({ children }) {
   const [patients, setPatients]                       = useState([])   // [{uid, email}]
   const [viewingPatientUid, setViewingPatientUid]     = useState(null)
   const [patientSos, setPatientSos]                   = useState([])   // viewed patient's SOS
+  const [ownAssignedChallenges, setOwnAssignedChallenges]         = useState([]) // clinician-assigned challenge foods (own)
+  const [patientAssignedChallenges, setPatientAssignedChallenges] = useState([]) // viewed patient's assigned challenges
   const [patientsWithOpenSos, setPatientsWithOpenSos] = useState({})   // { uid: true }
   const [patientFbMealData, setPatientFbMealData]     = useState({})
   const [patientMealTimesByDate, setPatientMealTimesByDate] = useState({})
@@ -177,6 +179,11 @@ export function FirebaseDataProvider({ children }) {
       setMySos(Object.entries(val).map(([id, v]) => ({ id, ...v })))
     }))
 
+    unsubs.push(onValue(ref(db, `${base}/assignedChallenges`), snap => {
+      const val = snap.val() || {}
+      setOwnAssignedChallenges(Object.entries(val).map(([id, v]) => ({ id, ...v })))
+    }))
+
     unsubs.push(onValue(ref(db, `${base}/familyCode`), snap => {
       setFamilyCode(snap.val() || null)
     }))
@@ -230,6 +237,10 @@ export function FirebaseDataProvider({ children }) {
       const val = snap.val() || {}
       setPatientSos(Object.entries(val).map(([id, v]) => ({ id, ...v })))
     }))
+    unsubs.push(onValue(ref(db, `users/${viewingPatientUid}/assignedChallenges`), snap => {
+      const val = snap.val() || {}
+      setPatientAssignedChallenges(Object.entries(val).map(([id, v]) => ({ id, ...v })))
+    }))
     return () => unsubs.forEach(u => u())
   }, [viewingPatientUid])
 
@@ -257,6 +268,7 @@ export function FirebaseDataProvider({ children }) {
   const parentNotesArray       = Object.values(activeParentNotesByDate)
   const prescribedSupplements  = viewingPatientUid ? patientPrescribedSupplements : ownPrescribedSupplements
   const clinicianNotes         = viewingPatientUid ? patientClinicianNotes : ownClinicianNotes
+  const assignedChallenges     = viewingPatientUid ? patientAssignedChallenges : ownAssignedChallenges
 
   // ── Write functions ────────────────────────────────────────────────────────
 
@@ -283,6 +295,25 @@ export function FirebaseDataProvider({ children }) {
         [mealType]: { ...(prev[date]?.[mealType] || {}), status },
       },
     }))
+  }
+
+  // Clinician assigns challenge foods to the viewed patient (writes to the
+  // patient's tree; rules allow linked clinicians). Parents read them only.
+  function addAssignedChallenge(name) {
+    const targetUid = viewingPatientUid || uid
+    const clean = String(name || '').trim().slice(0, 80)
+    if (!targetUid || !clean) return
+    const id = crypto.randomUUID()
+    set(ref(db, `users/${targetUid}/assignedChallenges/${id}`), {
+      name: clean,
+      createdAt: new Date().toISOString(),
+    })
+  }
+
+  function removeAssignedChallenge(id) {
+    const targetUid = viewingPatientUid || uid
+    if (!targetUid || !id) return
+    set(ref(db, `users/${targetUid}/assignedChallenges/${id}`), null)
   }
 
   // patch is { pre: 1-5|null } or { post: 1-5|null }; null clears a rating
@@ -553,6 +584,9 @@ export function FirebaseDataProvider({ children }) {
       updateFoodItemCategory,
       setFoodNutrition,
       resetFoodNutrition,
+      assignedChallenges,
+      addAssignedChallenge,
+      removeAssignedChallenge,
       mySos,
       sendSos,
       patientSos,
