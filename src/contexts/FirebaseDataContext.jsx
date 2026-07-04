@@ -533,12 +533,16 @@ export function FirebaseDataProvider({ children }) {
     const patientUid = codeSnap.val()
     if (patientUid === uid) return { error: "That's your own family code" }
     if (patients.some(p => p.uid === patientUid)) return { error: 'Patient already added' }
-    // Establish the relationship first — the patient's email is only readable
-    // once it exists, so we write addedAt, then read the email, then patch it in.
-    await set(ref(db, `users/${uid}/patients/${patientUid}`), { addedAt: new Date().toISOString() })
+    // Store the family code on the link — security rules validate that it resolves
+    // to this exact patient, so knowing the UID alone can't create a link.
+    // The relationship must exist before the patient's email is readable, so we
+    // set (code proves the link), read the email, then re-set the full record.
+    // Both writes are full sets on the node so the .validate rule runs on each.
+    const addedAt = new Date().toISOString()
+    await set(ref(db, `users/${uid}/patients/${patientUid}`), { addedAt, code: upper })
     const emailSnap = await get(ref(db, `users/${patientUid}/email`))
     const email = emailSnap.val() || patientUid
-    await set(ref(db, `users/${uid}/patients/${patientUid}/email`), email)
+    await set(ref(db, `users/${uid}/patients/${patientUid}`), { addedAt, code: upper, email })
     return { success: true }
   }
 
