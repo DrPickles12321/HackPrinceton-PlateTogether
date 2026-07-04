@@ -40,6 +40,9 @@ export default function LoginScreen() {
         setPendingRole(role)
         await signInWithEmailAndPassword(auth, email, password)
       } else {
+        // Remember the chosen role so AuthContext can use it immediately — the
+        // role write below may not land before onAuthStateChanged reads it.
+        setPendingRole(role)
         const cred = await createUserWithEmailAndPassword(auth, email, password)
         const { uid } = cred.user
         const writes = {

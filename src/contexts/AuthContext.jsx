@@ -25,8 +25,11 @@ export function AuthProvider({ children }) {
             setLoginError(`This email is registered as a ${storedRole}. Please select the correct role.`)
             return
           }
+          const pendingRole = pendingRoleRef.current
           pendingRoleRef.current = null
-          setRole(storedRole)
+          // A brand-new account's role write may not have propagated by the time
+          // this listener fires, so fall back to the role the user just selected.
+          setRole(storedRole || pendingRole)
           setUser(firebaseUser)
         } catch (err) {
           pendingRoleRef.current = null
