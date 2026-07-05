@@ -100,7 +100,9 @@ export function computeNutritionInsightsFromMealItems(allMealItems) {
       const items = dayMeals[mealType] || []
       for (const item of items) {
         const info = lookupNutrition(item.name, item.category || 'working_on')
-        calsByDate[date] = (calsByDate[date] || 0) + info.calories
+        // Scale energy by how much was actually eaten (unset = full portion).
+        const portion = typeof item.portion === 'number' ? item.portion : 1
+        calsByDate[date] = (calsByDate[date] || 0) + info.calories * portion
         for (const flag of (info.an_relevant_flags || [])) {
           flagCounts[flag] = (flagCounts[flag] || 0) + 1
         }

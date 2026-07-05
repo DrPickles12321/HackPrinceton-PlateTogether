@@ -20,6 +20,8 @@ const MEAL_TYPES = [
   { key: 'snack',     label: 'Snack' },
 ]
 
+const PORTION_FRACTION = { 0.25: '¼', 0.5: '½', 0.75: '¾', 1: 'all' }
+
 const SLOT_BASE = 'border rounded-lg p-2 min-h-[80px] transition-colors duration-150 relative'
 const STATUS_DOT = { okay: 'bg-green-500', difficult: 'bg-yellow-500', refused: 'bg-red-500', skipped: 'bg-stone-400' }
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
@@ -62,7 +64,12 @@ function ClinicianMealSlot({ items = [], latestLog, isWeekend }) {
         <div className="space-y-1 pr-4">
           {items.map((food, i) => (
             <div key={i}>
-              <span className="text-xs text-gray-900 leading-tight break-words block">{food.name}</span>
+              <span className="text-xs text-gray-900 leading-tight break-words block">
+                {food.name}
+                {food.portion != null && food.portion < 1 && (
+                  <span className="ml-1 font-semibold" style={{ color: 'var(--peach)' }}>· {PORTION_FRACTION[food.portion]}</span>
+                )}
+              </span>
               <NutritionBadge foodName={food.name} category={food.category} mode="clinician" />
             </div>
           ))}

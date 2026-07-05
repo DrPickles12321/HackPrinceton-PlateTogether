@@ -3,6 +3,7 @@ import { useFirebaseData } from '../contexts/FirebaseDataContext'
 import { computeWeeklyTrend } from '../lib/trends'
 import TrendChart from '../components/TrendChart'
 import { computeDistressSummary } from '../lib/weekSummary'
+import { computeMealTiming } from '../lib/mealTiming'
 import ChallengeAssigner from '../components/ChallengeAssigner'
 import { generateClinicianDigest } from '../lib/aiInsights'
 import { getWeekIsoDates } from '../lib/insights'
@@ -340,6 +341,10 @@ export default function ClinicianView() {
     () => computeDistressSummary(parentMealDistress, getWeekIsoDates(0)),
     [parentMealDistress]
   )
+  const mealTiming = useMemo(
+    () => computeMealTiming(parentMealTimesByDate, parentMealStatuses, parentMealItems, getWeekIsoDates(0)),
+    [parentMealTimesByDate, parentMealStatuses, parentMealItems]
+  )
   const isMobile = useIsMobile()
 
   useEffect(() => { document.title = 'Dashboard · Plate Together' }, [])
@@ -498,6 +503,46 @@ export default function ClinicianView() {
 
           <RevealSection eyebrow="Progress" delay={1}>
             <WeeklyInsights allMealItems={parentMealItems} mealStatuses={parentMealStatuses} />
+          </RevealSection>
+
+          <RevealSection eyebrow="Eating rhythm">
+            <SectionCard>
+              <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 14, flexWrap: 'wrap', gap: 8 }}>
+                <div style={{ fontWeight: 700, fontSize: 15, color: 'var(--text-dark)' }}>Meal-time regularity</div>
+                <span style={{ fontSize: 12, color: 'var(--text-light)' }}>Consistent timing supports recovery</span>
+              </div>
+              {mealTiming.evaluatedCount === 0 ? (
+                <p style={{ fontSize: 13, color: 'var(--text-light)', fontStyle: 'italic', margin: 0 }}>
+                  Not enough logged days yet to gauge timing.
+                </p>
+              ) : (
+                <>
+                  <p style={{ fontSize: 13, color: 'var(--text-mid)', margin: '0 0 14px' }}>
+                    <strong style={{ color: 'var(--text-dark)' }}>{mealTiming.consistentCount} of {mealTiming.evaluatedCount}</strong> meals kept a steady time this week.
+                  </p>
+                  <div style={{ display: 'grid', gap: 8 }}>
+                    {mealTiming.meals.filter(m => m.loggedDays > 0).map(m => (
+                      <div key={m.key} style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                        <span style={{ fontSize: 15, width: 20, textAlign: 'center' }}>{m.icon}</span>
+                        <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-dark)', width: 78 }}>{m.label}</span>
+                        <span style={{ fontSize: 13, color: 'var(--text-mid)' }}>~{m.typicalTime}</span>
+                        <span style={{ fontSize: 12, color: 'var(--text-light)' }}>· {m.loggedDays} day{m.loggedDays === 1 ? '' : 's'}</span>
+                        {m.loggedDays >= 2 && (
+                          <span style={{
+                            marginLeft: 'auto', fontSize: 11, fontWeight: 600, padding: '2px 9px', borderRadius: 8,
+                            color: m.consistent ? 'var(--mint)' : 'var(--peach)',
+                            background: m.consistent ? 'var(--mint-light)' : 'var(--peach-light)',
+                            border: `1px solid ${m.consistent ? 'var(--mint-mid)' : 'var(--peach-mid)'}`,
+                          }}>
+                            {m.consistent ? 'steady' : `varies ±${Math.round(m.spreadMin / 60 * 10) / 10}h`}
+                          </span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+            </SectionCard>
           </RevealSection>
 
           <RevealSection eyebrow="Progress over time">

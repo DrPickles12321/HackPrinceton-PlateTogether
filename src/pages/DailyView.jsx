@@ -43,6 +43,16 @@ const STATUS_OPTIONS = [
   { key: 'skipped',   emoji: '⊘',  label: 'Skip', color: '#8a7568', bg: '#f1ece3', border: '#ddd0bd' },
 ]
 
+// How much of the food was eaten. Stored as a fraction on the meal item so the
+// clinician sees amounts and the energy estimate can scale. Unset = assume full.
+const PORTION_OPTIONS = [
+  { value: 0.25, label: '¼' },
+  { value: 0.5,  label: '½' },
+  { value: 0.75, label: '¾' },
+  { value: 1,    label: 'All' },
+]
+export const PORTION_LABEL = { 0.25: '¼', 0.5: '½', 0.75: '¾', 1: 'all' }
+
 const RING_NUTRIENTS = [
   { key: 'protein',       label: 'Protein', color: '#E8735A', darkColor: '#C25A3F', getVal: info => info.protein_g || 0 },
   { key: 'carbs',         label: 'Carbs',   color: '#F5A623', darkColor: '#D08B15', getVal: info => info.carbs_g || 0 },
@@ -147,6 +157,11 @@ function DropZone({ mealType, items, onRemove, onFoodClick, selectedFoodIndex, i
                 }} />
               )}
               {food.name}
+              {food.portion != null && food.portion < 1 && (
+                <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--peach)', flexShrink: 0 }}>
+                  {PORTION_LABEL[food.portion]}
+                </span>
+              )}
               <button
                 onClick={e => { e.stopPropagation(); onRemove(i) }}
                 style={{
@@ -171,7 +186,7 @@ function DropZone({ mealType, items, onRemove, onFoodClick, selectedFoodIndex, i
 
 // ─── Meal card ────────────────────────────────────────────────────────────────
 
-function MealCard({ meal, items, onRemove, latestLog, onQuickLog, time, onTimeChange, selectedFoodIndex, onFoodClick, onFoodStatusSet, distress, onDistressSet }) {
+function MealCard({ meal, items, onRemove, latestLog, onQuickLog, time, onTimeChange, selectedFoodIndex, onFoodClick, onFoodStatusSet, onFoodPortionSet, distress, onDistressSet }) {
   const loggedStatus = latestLog?.status || null
   const hasItems = items.length > 0
   const initialTime = parseTimeValue(time)
@@ -361,6 +376,24 @@ function MealCard({ meal, items, onRemove, latestLog, onQuickLog, time, onTimeCh
                 </button>
               )
             })}
+            <span style={{ width: 1, height: 22, background: 'var(--border)', margin: '0 3px', alignSelf: 'center' }} />
+            <span style={{ fontSize: 10, color: 'var(--text-light)', alignSelf: 'center', marginRight: 1 }}>ate</span>
+            {PORTION_OPTIONS.map(p => {
+              const sel = items[selectedFoodIndex]?.portion === p.value
+              return (
+                <button
+                  key={p.value}
+                  title={`Ate ${p.label}`}
+                  onClick={() => onFoodPortionSet?.(meal.key, selectedFoodIndex, sel ? null : p.value)}
+                  style={{
+                    minWidth: 28, padding: '6px 7px', borderRadius: 8, border: 'none',
+                    background: sel ? '#efe7db' : 'white', outline: sel ? '2px solid var(--peach)' : 'none',
+                    cursor: 'pointer', fontSize: 13, fontWeight: 700,
+                    color: sel ? 'var(--peach)' : 'var(--text-mid)', fontFamily: 'inherit',
+                  }}
+                >{p.label}</button>
+              )
+            })}
             <button
               onClick={e => { e.stopPropagation(); onFoodClick?.(selectedFoodIndex) }}
               style={{
@@ -381,7 +414,7 @@ function MealCard({ meal, items, onRemove, latestLog, onQuickLog, time, onTimeCh
 function MobileMealCard({
   meal, items, latestLog, onQuickLog, time, onTimeChange,
   expanded, onToggleExpand, onOpenAddFood, onRemove,
-  selectedFoodIndex, onFoodClick, onFoodStatusSet,
+  selectedFoodIndex, onFoodClick, onFoodStatusSet, onFoodPortionSet,
   distress, onDistressSet,
 }) {
   const loggedStatus = latestLog?.status || null
@@ -505,6 +538,11 @@ function MobileMealCard({
                   }} />
                 )}
                 {food.name}
+                {food.portion != null && food.portion < 1 && (
+                  <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--peach)', flexShrink: 0 }}>
+                    {PORTION_LABEL[food.portion]}
+                  </span>
+                )}
                 <button
                   onClick={e => { e.stopPropagation(); onRemove(i) }}
                   aria-label={`Remove ${food.name}`}
@@ -547,6 +585,24 @@ function MobileMealCard({
                       cursor: 'pointer', minHeight: 44, fontFamily: "'Outfit', sans-serif",
                     }}
                   >{opt.label}</button>
+                )
+              })}
+              <span style={{ flexBasis: '100%', height: 0 }} />
+              <span style={{ fontSize: 11, color: 'var(--text-light)', marginRight: 2 }}>Ate:</span>
+              {PORTION_OPTIONS.map(p => {
+                const sel = items[selectedFoodIndex]?.portion === p.value
+                return (
+                  <button
+                    key={p.value}
+                    onClick={() => onFoodPortionSet?.(meal.key, selectedFoodIndex, sel ? null : p.value)}
+                    style={{
+                      minWidth: 44, padding: '11px 12px', borderRadius: 10, border: 'none',
+                      outline: sel ? '2px solid var(--peach)' : '1px solid var(--border)',
+                      background: 'white', color: sel ? 'var(--peach)' : 'var(--text-mid)',
+                      fontSize: 14, fontWeight: 700, cursor: 'pointer', minHeight: 44,
+                      fontFamily: "'Outfit', sans-serif",
+                    }}
+                  >{p.label}</button>
                 )
               })}
             </div>
@@ -1170,6 +1226,16 @@ export default function DailyView() {
     setSelectedFood(null)
   }
 
+  // How much of the food was eaten (0.25–1, or null to clear). Leaves the food
+  // selected so the parent can set portion and status in one go.
+  function setFoodPortion(mealType, index, portion) {
+    setMealItemsForDay(prev => {
+      const updated = [...prev[mealType]]
+      updated[index] = { ...updated[index], portion }
+      return { ...prev, [mealType]: updated }
+    })
+  }
+
   function setMealItemsForDay(updater) {
     const current = { ...EMPTY_MEAL_ITEMS, ...(allMealItems[selectedDate] || {}) }
     const next = updater(current)
@@ -1312,6 +1378,7 @@ export default function DailyView() {
                       : { mealType: meal.key, index }
                   )}
                   onFoodStatusSet={setFoodStatus}
+                  onFoodPortionSet={setFoodPortion}
                 />
               )
             })}
@@ -1487,6 +1554,7 @@ export default function DailyView() {
                       : { mealType: meal.key, index }
                   )}
                   onFoodStatusSet={setFoodStatus}
+                  onFoodPortionSet={setFoodPortion}
                 />
               )
             })}
