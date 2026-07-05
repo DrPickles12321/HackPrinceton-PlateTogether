@@ -317,6 +317,7 @@ export default function ClinicianView() {
     viewingPatientUid,
     setViewingPatientUid,
     addPatientByCode,
+    removePatient,
     prescribedSupplements,
     savePrescribedSupplements,
     clinicianNotes,
@@ -333,6 +334,7 @@ export default function ClinicianView() {
   const [addCodeError, setAddCodeError]  = useState('')
   const [addCodeLoading, setAddCodeLoading] = useState(false)
   const [selectedDay, setSelectedDay] = useState(null)
+  const [confirmUnlink, setConfirmUnlink] = useState(false)
   const trend = useMemo(() => computeWeeklyTrend({ mealStatuses: parentMealStatuses }), [parentMealStatuses])
   const distressSummary = useMemo(
     () => computeDistressSummary(parentMealDistress, getWeekIsoDates(0)),
@@ -392,7 +394,7 @@ export default function ClinicianView() {
             </label>
             <select
               value={viewingPatientUid || ''}
-              onChange={e => setViewingPatientUid(e.target.value || null)}
+              onChange={e => { setViewingPatientUid(e.target.value || null); setConfirmUnlink(false) }}
               style={{
                 padding: '9px 36px 9px 16px', borderRadius: 999,
                 border: '1.5px solid var(--border)', fontSize: 13,
@@ -409,6 +411,30 @@ export default function ClinicianView() {
                 <option key={p.uid} value={p.uid}>{patientsWithOpenSos[p.uid] ? '🆘 ' : ''}{p.email}</option>
               ))}
             </select>
+
+            {viewingPatientUid && (
+              confirmUnlink ? (
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', justifyContent: isMobile ? 'flex-start' : 'flex-end' }}>
+                  <span style={{ fontSize: 12, color: 'var(--text-mid)' }}>Unlink this patient?</span>
+                  <button
+                    type="button"
+                    onClick={() => { removePatient(viewingPatientUid); setConfirmUnlink(false) }}
+                    style={{ border: 'none', borderRadius: 8, padding: '5px 12px', background: 'var(--coral)', color: 'white', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}
+                  >Yes, unlink</button>
+                  <button
+                    type="button"
+                    onClick={() => setConfirmUnlink(false)}
+                    style={{ border: '1px solid var(--border-mid)', borderRadius: 8, padding: '5px 12px', background: 'none', color: 'var(--text-mid)', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}
+                  >Cancel</button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setConfirmUnlink(true)}
+                  style={{ alignSelf: isMobile ? 'flex-start' : 'flex-end', border: 'none', background: 'none', padding: '2px 4px', color: 'var(--text-light)', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit', textDecoration: 'underline', textUnderlineOffset: 2 }}
+                >Unlink patient</button>
+              )
+            )}
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6, alignItems: isMobile ? 'stretch' : 'flex-end' }}>

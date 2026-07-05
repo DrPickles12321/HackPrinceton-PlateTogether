@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState } from 'react'
 import { ref, onValue, set, update, get } from 'firebase/database'
-import { db } from '../firebase'
+import { deleteUser } from 'firebase/auth'
+import { db, auth } from '../firebase'
 import { useAuth } from './AuthContext'
 import { fetchFoodInfo } from '../lib/foodData'
 
@@ -546,6 +547,33 @@ export function FirebaseDataProvider({ children }) {
     return { success: true }
   }
 
+  // Clinician unlinks a patient (removes only the link in the clinician's own
+  // tree; the patient's data is untouched). Reversible by re-adding the code.
+  function removePatient(patientUid) {
+    if (!uid || !patientUid) return
+    set(ref(db, `users/${uid}/patients/${patientUid}`), null)
+    if (viewingPatientUid === patientUid) setViewingPatientUid(null)
+  }
+
+  // Permanently delete the signed-in account: the family-code mapping, the whole
+  // users/{uid} record, then the Firebase Auth user. Data-first so we still have
+  // permission to delete it; the steps are idempotent, so a reauth retry is safe.
+  async function deleteAccount() {
+    if (!uid) return { error: 'Not signed in' }
+    try {
+      if (familyCode) await set(ref(db, `familyCodes/${familyCode}`), null)
+      await set(ref(db, `users/${uid}`), null)
+      await deleteUser(auth.currentUser)
+      return { success: true }
+    } catch (err) {
+      if (err?.code === 'auth/requires-recent-login') {
+        return { error: 'reauth' }
+      }
+      console.error('deleteAccount failed:', err)
+      return { error: 'failed' }
+    }
+  }
+
   return (
     <FirebaseDataContext.Provider value={{
       allMealItems,
@@ -582,6 +610,8 @@ export function FirebaseDataProvider({ children }) {
       viewingPatientUid,
       setViewingPatientUid,
       addPatientByCode,
+      removePatient,
+      deleteAccount,
       foodItems,
       addFoodItem,
       deleteFoodItem,

@@ -3,12 +3,13 @@
     "familyCodes": {
       "$code": {
         ".read": "auth != null",
-        ".write": "auth != null && newData.val() === auth.uid && (!data.exists() || data.val() === auth.uid)"
+        ".write": "auth != null && ((newData.val() === auth.uid && (!data.exists() || data.val() === auth.uid)) || (!newData.exists() && data.val() === auth.uid))"
       }
     },
     "users": {
       "$uid": {
         ".read": "auth != null && (auth.uid === $uid || root.child('users/' + auth.uid + '/patients/' + $uid).exists())",
+        ".write": "auth.uid === $uid && !newData.exists()",
 
         "email":               { ".read": "auth != null && (auth.uid === $uid || root.child('users/' + auth.uid + '/patients/' + $uid).exists())", ".write": "auth.uid === $uid" },
         "role":                { ".write": "auth.uid === $uid && !data.exists()" },
