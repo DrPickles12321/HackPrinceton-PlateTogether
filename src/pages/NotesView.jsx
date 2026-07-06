@@ -5,6 +5,7 @@ import { useFirebaseData } from '../contexts/FirebaseDataContext'
 import { ParentNoteSection, ClinicianNotesSidebar } from './DailyView'
 import { localIsoDate } from '../lib/constants'
 import DeleteAccountModal from '../components/DeleteAccountModal'
+import CareTeamCard from '../components/CareTeamCard'
 
 const TODAY_ISO = localIsoDate()
 
@@ -13,7 +14,7 @@ export default function NotesView() {
     clinicianNotes = [], parentNotes = [], clinicianNotesRead = {}, savedClinicianNotes = [],
     saveParentNote, markClinicianNoteRead, saveClinicianNote, unsaveClinicianNote, clearAllSavedNotes,
   } = useOutletContext()
-  const { deleteAccount } = useFirebaseData()
+  const { deleteAccount, careTeam, revokeCareTeamAccess } = useFirebaseData()
   const isMobile = useIsMobile()
   const [showDelete, setShowDelete] = useState(false)
 
@@ -45,6 +46,8 @@ export default function NotesView() {
         selectedDate={TODAY_ISO}
         onSave={body => saveParentNote({ date: TODAY_ISO, body, existingNoteId: todayNote?.id || null })}
       />
+
+      <CareTeamCard careTeam={careTeam} onRevoke={revokeCareTeamAccess} />
 
       {/* Account · danger zone */}
       <div style={{

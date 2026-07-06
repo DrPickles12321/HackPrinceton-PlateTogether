@@ -85,6 +85,7 @@ export function FirebaseDataProvider({ children }) {
   const [foodItems, setFoodItems]                     = useState([])
   const [familyCode, setFamilyCode]                   = useState(null)
   const [mySos, setMySos]                             = useState([])   // parent's own SOS records
+  const [careTeam, setCareTeam]                       = useState([])   // [{uid, email, active, addedAt}] — clinicians linked to me
 
   // ── Clinician patient management ──────────────────────────────────────────
   const [patients, setPatients]                       = useState([])   // [{uid, email}]
@@ -117,6 +118,7 @@ export function FirebaseDataProvider({ children }) {
       setPatients([])
       setViewingPatientUid(null)
       setOwnPrescribedSupplements([])
+      setCareTeam([])
       return
     }
 
@@ -125,6 +127,11 @@ export function FirebaseDataProvider({ children }) {
 
     unsubs.push(onValue(ref(db, `${base}/mealLogs`), snap => {
       setFbMealData(normalizeMealData(snap.val()))
+    }))
+
+    unsubs.push(onValue(ref(db, `${base}/careTeam`), snap => {
+      const val = snap.val() || {}
+      setCareTeam(Object.entries(val).map(([cUid, v]) => ({ uid: cUid, ...v })))
     }))
 
     unsubs.push(onValue(ref(db, `${base}/nutritionalTargets`), snap => {
@@ -194,6 +201,7 @@ export function FirebaseDataProvider({ children }) {
       setPatients(Object.entries(val).map(([pUid, data]) => ({
         uid:   pUid,
         email: typeof data === 'object' ? (data.email || pUid) : pUid,
+        code:  typeof data === 'object' ? data.code : null,
       })))
     }))
 
@@ -212,6 +220,22 @@ export function FirebaseDataProvider({ children }) {
       setPatientSos([])
       return
     }
+    // Self-heal a missing careTeam entry for links created before this feature
+    // existed, so the patient can see and revoke pre-existing clinician access
+    // too. Uses the family code already stored on our own patients/ record —
+    // the same proof addPatientByCode uses — so this can't grant new access,
+    // only surface an access grant that already exists.
+    const myPatientRecord = patients.find(p => p.uid === viewingPatientUid)
+    if (myPatientRecord?.code) {
+      get(ref(db, `users/${viewingPatientUid}/careTeam/${uid}`)).then(snap => {
+        if (snap.exists()) return
+        set(ref(db, `users/${viewingPatientUid}/careTeam/${uid}`), {
+          addedAt: new Date().toISOString(), code: myPatientRecord.code,
+          active: true, clinicianEmail: user?.email || uid,
+        }).catch(() => {})
+      }).catch(() => {})
+    }
+
     const unsubs = []
     unsubs.push(onValue(ref(db, `users/${viewingPatientUid}/mealLogs`), snap => {
       setPatientFbMealData(normalizeMealData(snap.val()))
@@ -544,6 +568,13 @@ export function FirebaseDataProvider({ children }) {
     const emailSnap = await get(ref(db, `users/${patientUid}/email`))
     const email = emailSnap.val() || patientUid
     await set(ref(db, `users/${uid}/patients/${patientUid}`), { addedAt, code: upper, email })
+    // Reverse-index entry on the patient's own tree so they can see and revoke
+    // this link. Rules only allow this on first link (no prior record) — if the
+    // family already revoked this clinician before, this write is silently
+    // denied and the revoke sticks, even though the `patients` link above re-added.
+    set(ref(db, `users/${patientUid}/careTeam/${uid}`), {
+      addedAt, code: upper, active: true, clinicianEmail: user?.email || uid,
+    }).catch(() => {})
     return { success: true }
   }
 
@@ -553,6 +584,15 @@ export function FirebaseDataProvider({ children }) {
     if (!uid || !patientUid) return
     set(ref(db, `users/${uid}/patients/${patientUid}`), null)
     if (viewingPatientUid === patientUid) setViewingPatientUid(null)
+  }
+
+  // Parent revokes a clinician's access. Kept as a record (not deleted) so the
+  // clinician can't silently re-activate themselves by re-adding the family
+  // code — security rules only let a clinician WRITE this entry when it doesn't
+  // exist yet, so once revoked it stays revoked until the parent acts again.
+  function revokeCareTeamAccess(clinicianUid) {
+    if (!uid || !clinicianUid) return
+    update(ref(db, `users/${uid}/careTeam/${clinicianUid}`), { active: false })
   }
 
   // Permanently delete the signed-in account: the family-code mapping, the whole
@@ -621,6 +661,8 @@ export function FirebaseDataProvider({ children }) {
       assignedChallenges,
       addAssignedChallenge,
       removeAssignedChallenge,
+      careTeam,
+      revokeCareTeamAccess,
       mySos,
       sendSos,
       patientSos,

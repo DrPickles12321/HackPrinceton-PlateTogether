@@ -8,16 +8,22 @@
     },
     "users": {
       "$uid": {
-        ".read": "auth != null && (auth.uid === $uid || root.child('users/' + auth.uid + '/patients/' + $uid).exists())",
+        ".read": "auth != null && (auth.uid === $uid || (root.child('users/' + auth.uid + '/patients/' + $uid).exists() && root.child('users/' + $uid + '/careTeam/' + auth.uid + '/active').val() !== false))",
         ".write": "auth.uid === $uid && !newData.exists()",
 
-        "email":               { ".read": "auth != null && (auth.uid === $uid || root.child('users/' + auth.uid + '/patients/' + $uid).exists())", ".write": "auth.uid === $uid" },
+        "email":               { ".read": "auth != null && (auth.uid === $uid || (root.child('users/' + auth.uid + '/patients/' + $uid).exists() && root.child('users/' + $uid + '/careTeam/' + auth.uid + '/active').val() !== false))", ".write": "auth.uid === $uid" },
         "role":                { ".write": "auth.uid === $uid && !data.exists()" },
         "familyCode":          { ".write": "auth.uid === $uid" },
         "patients": {
           ".write": "auth.uid === $uid",
           "$patientUid": {
             ".validate": "newData.hasChild('code') && root.child('familyCodes').child(newData.child('code').val()).val() === $patientUid"
+          }
+        },
+        "careTeam": {
+          "$clinicianUid": {
+            ".write": "auth.uid === $uid || auth.uid === $clinicianUid",
+            ".validate": "auth.uid === $uid || (!data.exists() && newData.hasChild('code') && root.child('familyCodes').child(newData.child('code').val()).val() === $uid)"
           }
         },
         "insights":            { ".write": "auth.uid === $uid" },
@@ -30,12 +36,12 @@
         "savedClinicianNotes": { ".write": "auth.uid === $uid" },
         "consent":             { ".write": "auth.uid === $uid" },
 
-        "nutritionalTargets":    { ".write": "auth.uid === $uid || root.child('users/' + auth.uid + '/patients/' + $uid).exists()" },
-        "prescribedSupplements": { ".write": "auth.uid === $uid || root.child('users/' + auth.uid + '/patients/' + $uid).exists()" },
-        "parentNotes":           { ".write": "auth.uid === $uid || root.child('users/' + auth.uid + '/patients/' + $uid).exists()" },
-        "clinicianNotes":        { ".write": "root.child('users/' + auth.uid + '/patients/' + $uid).exists()" },
-        "sos":                   { ".write": "auth.uid === $uid || root.child('users/' + auth.uid + '/patients/' + $uid).exists()" },
-        "assignedChallenges":    { ".write": "auth.uid === $uid || root.child('users/' + auth.uid + '/patients/' + $uid).exists()" }
+        "nutritionalTargets":    { ".write": "auth.uid === $uid || (root.child('users/' + auth.uid + '/patients/' + $uid).exists() && root.child('users/' + $uid + '/careTeam/' + auth.uid + '/active').val() !== false)" },
+        "prescribedSupplements": { ".write": "auth.uid === $uid || (root.child('users/' + auth.uid + '/patients/' + $uid).exists() && root.child('users/' + $uid + '/careTeam/' + auth.uid + '/active').val() !== false)" },
+        "parentNotes":           { ".write": "auth.uid === $uid || (root.child('users/' + auth.uid + '/patients/' + $uid).exists() && root.child('users/' + $uid + '/careTeam/' + auth.uid + '/active').val() !== false)" },
+        "clinicianNotes":        { ".write": "root.child('users/' + auth.uid + '/patients/' + $uid).exists() && root.child('users/' + $uid + '/careTeam/' + auth.uid + '/active').val() !== false" },
+        "sos":                   { ".write": "auth.uid === $uid || (root.child('users/' + auth.uid + '/patients/' + $uid).exists() && root.child('users/' + $uid + '/careTeam/' + auth.uid + '/active').val() !== false)" },
+        "assignedChallenges":    { ".write": "auth.uid === $uid || (root.child('users/' + auth.uid + '/patients/' + $uid).exists() && root.child('users/' + $uid + '/careTeam/' + auth.uid + '/active').val() !== false)" }
       }
     }
   }
