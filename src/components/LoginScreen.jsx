@@ -26,12 +26,15 @@ export default function LoginScreen() {
   const [password, setPassword] = useState('')
   const [error, setError]       = useState('')
   const [loading, setLoading]   = useState(false)
+  const [consented, setConsented] = useState(false)
 
   const displayError = loginError || error
+  const CONSENT_VERSION = 1
 
   async function handleSubmit(e) {
     e.preventDefault()
     if (!role) { setError('Please select a role first.'); return }
+    if (mode === 'register' && !consented) { setError('Please agree to the terms to create an account.'); return }
     clearLoginError()
     setError('')
     setLoading(true)
@@ -49,6 +52,7 @@ export default function LoginScreen() {
           [`users/${uid}/role`]:  role,
           [`users/${uid}/email`]: email,
           [`users/${uid}/nutritionalTargets`]: { protein: 75, carbs: 150, fruitsVeggies: 200 },
+          [`users/${uid}/consent`]: { agreedAt: new Date().toISOString(), version: CONSENT_VERSION },
         }
         if (role === 'parent') {
           const code = generateFamilyCode()
@@ -154,6 +158,25 @@ export default function LoginScreen() {
           />
         </div>
 
+        {/* Consent — required to create an account */}
+        {mode === 'register' && (
+          <label style={{ display: 'flex', gap: 10, alignItems: 'flex-start', cursor: 'pointer', background: 'var(--surface-warm)', border: '1px solid var(--border)', borderRadius: 12, padding: '12px 14px' }}>
+            <input
+              type="checkbox"
+              checked={consented}
+              onChange={e => { setConsented(e.target.checked); setError('') }}
+              style={{ marginTop: 2, width: 18, height: 18, flexShrink: 0, accentColor: 'var(--coral)', cursor: 'pointer' }}
+            />
+            <span style={{ fontSize: 12.5, color: 'var(--text-mid)', lineHeight: 1.55 }}>
+              I agree to Plate Together storing meal and wellbeing information to support recovery.
+              {role === 'parent'
+                ? ' If this account is for a child, I confirm I am their parent or guardian and consent on their behalf.'
+                : ' I will only access a family’s data with their consent (via their family code).'}
+              {' '}This app is a support tool, <strong>not a medical device or emergency service</strong> — in a crisis, call 988 or 911.
+            </span>
+          </label>
+        )}
+
         {/* Error */}
         {displayError && (
           <div style={{
@@ -172,10 +195,10 @@ export default function LoginScreen() {
         {/* Submit */}
         <button
           type="submit"
-          disabled={loading}
+          disabled={loading || (mode === 'register' && !consented)}
           style={{
             width: '100%', padding: '14px 0', borderRadius: 13, border: 'none',
-            background: loading
+            background: loading || (mode === 'register' && !consented)
               ? 'rgba(232,115,90,0.5)'
               : 'linear-gradient(135deg, var(--coral) 0%, var(--pink) 100%)',
             color: 'white', fontSize: 15, fontWeight: 600, minHeight: 50,

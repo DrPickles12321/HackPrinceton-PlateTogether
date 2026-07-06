@@ -5,6 +5,7 @@ import TrendChart from '../components/TrendChart'
 import { computeDistressSummary } from '../lib/weekSummary'
 import { computeMealTiming } from '../lib/mealTiming'
 import ChallengeAssigner from '../components/ChallengeAssigner'
+import WelcomeModal from '../components/WelcomeModal'
 import { generateClinicianDigest } from '../lib/aiInsights'
 import { getWeekIsoDates } from '../lib/insights'
 import { detectWeeklyAnomalies } from '../lib/anomalyDetection'
@@ -638,6 +639,8 @@ export default function ClinicianView() {
           onClose={() => setSelectedDay(null)}
         />
       )}
+
+      <WelcomeModal role="clinician" />
     </div>
   )
 }

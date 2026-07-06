@@ -4,6 +4,7 @@ import { useFirebaseData } from '../contexts/FirebaseDataContext'
 import { useIsMobile } from '../hooks/useIsMobile'
 import MobileTabBar from '../components/MobileTabBar'
 import ChatWidget from '../components/ChatWidget'
+import WelcomeModal from '../components/WelcomeModal'
 
 export default function ParentView() {
   const [weekOffset, setWeekOffset] = useState(0)
@@ -36,6 +37,7 @@ export default function ParentView() {
       </div>
       {isMobile && <MobileTabBar />}
       <ChatWidget />
+      <WelcomeModal role="parent" />
     </>
   )
 }

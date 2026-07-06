@@ -28,6 +28,7 @@
         "foodItems":           { ".write": "auth.uid === $uid" },
         "clinicianNotesRead":  { ".write": "auth.uid === $uid" },
         "savedClinicianNotes": { ".write": "auth.uid === $uid" },
+        "consent":             { ".write": "auth.uid === $uid" },
 
         "nutritionalTargets":    { ".write": "auth.uid === $uid || root.child('users/' + auth.uid + '/patients/' + $uid).exists()" },
         "prescribedSupplements": { ".write": "auth.uid === $uid || root.child('users/' + auth.uid + '/patients/' + $uid).exists()" },
