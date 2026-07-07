@@ -90,6 +90,7 @@ export function FirebaseDataProvider({ children }) {
   // ── Clinician patient management ──────────────────────────────────────────
   const [patients, setPatients]                       = useState([])   // [{uid, email}]
   const [viewingPatientUid, setViewingPatientUid]     = useState(null)
+  const [patientAccessDenied, setPatientAccessDenied] = useState(false) // true if the viewed patient revoked access
   const [patientSos, setPatientSos]                   = useState([])   // viewed patient's SOS
   const [ownAssignedChallenges, setOwnAssignedChallenges]         = useState([]) // clinician-assigned challenge foods (own)
   const [patientAssignedChallenges, setPatientAssignedChallenges] = useState([]) // viewed patient's assigned challenges
@@ -240,12 +241,20 @@ export function FirebaseDataProvider({ children }) {
       setPatientParentNotesByDate({})
       setPatientClinicianNotes([])
       setPatientSos([])
+      setPatientAccessDenied(false)
       return
     }
+    setPatientAccessDenied(false)
     const unsubs = []
-    unsubs.push(onValue(ref(db, `users/${viewingPatientUid}/mealLogs`), snap => {
-      setPatientFbMealData(normalizeMealData(snap.val()))
-    }))
+    // The error callback fires when the parent has revoked access — surfaced
+    // explicitly rather than left to look like "no data yet" (permission_denied
+    // reads otherwise resolve with an empty snapshot, indistinguishable from a
+    // genuinely new patient).
+    unsubs.push(onValue(
+      ref(db, `users/${viewingPatientUid}/mealLogs`),
+      snap => { setPatientFbMealData(normalizeMealData(snap.val())); setPatientAccessDenied(false) },
+      err => { if (err?.code === 'PERMISSION_DENIED') setPatientAccessDenied(true) }
+    ))
     unsubs.push(onValue(ref(db, `users/${viewingPatientUid}/mealTimes`), snap => {
       setPatientMealTimesByDate(snap.val() || {})
     }))
@@ -655,6 +664,7 @@ export function FirebaseDataProvider({ children }) {
       savePrescribedSupplements,
       viewingPatientUid,
       setViewingPatientUid,
+      patientAccessDenied,
       addPatientByCode,
       removePatient,
       deleteAccount,

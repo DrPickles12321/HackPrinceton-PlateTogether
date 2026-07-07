@@ -318,6 +318,7 @@ export default function ClinicianView() {
     patients,
     viewingPatientUid,
     setViewingPatientUid,
+    patientAccessDenied,
     addPatientByCode,
     removePatient,
     prescribedSupplements,
@@ -484,6 +485,23 @@ export default function ClinicianView() {
           <p style={{ fontSize: 13, color: 'var(--text-light)', letterSpacing: '0.2px' }}>
             Select a patient above to view their weekly data.
           </p>
+        </div>
+      ) : patientAccessDenied ? (
+        <div style={{
+          marginTop: 16, padding: '20px 24px', borderRadius: 16,
+          border: '1.5px solid var(--pink-mid)', background: 'var(--pink-light)',
+          display: 'flex', alignItems: 'flex-start', gap: 14,
+        }}>
+          <span style={{ fontSize: 24, lineHeight: 1 }}>🔒</span>
+          <div>
+            <div style={{ fontWeight: 700, fontSize: 15, color: 'var(--text-dark)', marginBottom: 4 }}>
+              Access removed
+            </div>
+            <p style={{ fontSize: 13.5, color: 'var(--text-mid)', lineHeight: 1.55, margin: 0 }}>
+              {patients.find(p => p.uid === viewingPatientUid)?.email || 'This patient'} has removed your access
+              to their logs. If this was a mistake, ask them to grant you access again.
+            </p>
+          </div>
         </div>
       ) : (
         <>
