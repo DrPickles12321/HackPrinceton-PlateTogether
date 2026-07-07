@@ -208,6 +208,27 @@ export function FirebaseDataProvider({ children }) {
     return () => unsubs.forEach(u => u())
   }, [uid])
 
+  // Self-heal a missing careTeam entry for links created before this feature
+  // existed, so the patient can see and revoke pre-existing clinician access
+  // too. Uses the family code already stored on our own patients/ record — the
+  // same proof addPatientByCode uses — so this can't grant new access, only
+  // surface an access grant that already exists. Kept as its own effect (not
+  // folded into the subscription effect below) and depends on `patients` too,
+  // so it retries once our own patient list finishes loading rather than
+  // silently skipping if it raced ahead of viewingPatientUid being set.
+  useEffect(() => {
+    if (!viewingPatientUid || !uid) return
+    const myPatientRecord = patients.find(p => p.uid === viewingPatientUid)
+    if (!myPatientRecord?.code) return
+    get(ref(db, `users/${viewingPatientUid}/careTeam/${uid}`)).then(snap => {
+      if (snap.exists()) return
+      set(ref(db, `users/${viewingPatientUid}/careTeam/${uid}`), {
+        addedAt: new Date().toISOString(), code: myPatientRecord.code,
+        active: true, clinicianEmail: user?.email || uid,
+      }).catch(() => {})
+    }).catch(() => {})
+  }, [viewingPatientUid, patients, uid, user])
+
   // ── Subscribe to selected patient data (for clinician) ────────────────────
   useEffect(() => {
     if (!viewingPatientUid) {
@@ -220,22 +241,6 @@ export function FirebaseDataProvider({ children }) {
       setPatientSos([])
       return
     }
-    // Self-heal a missing careTeam entry for links created before this feature
-    // existed, so the patient can see and revoke pre-existing clinician access
-    // too. Uses the family code already stored on our own patients/ record —
-    // the same proof addPatientByCode uses — so this can't grant new access,
-    // only surface an access grant that already exists.
-    const myPatientRecord = patients.find(p => p.uid === viewingPatientUid)
-    if (myPatientRecord?.code) {
-      get(ref(db, `users/${viewingPatientUid}/careTeam/${uid}`)).then(snap => {
-        if (snap.exists()) return
-        set(ref(db, `users/${viewingPatientUid}/careTeam/${uid}`), {
-          addedAt: new Date().toISOString(), code: myPatientRecord.code,
-          active: true, clinicianEmail: user?.email || uid,
-        }).catch(() => {})
-      }).catch(() => {})
-    }
-
     const unsubs = []
     unsubs.push(onValue(ref(db, `users/${viewingPatientUid}/mealLogs`), snap => {
       setPatientFbMealData(normalizeMealData(snap.val()))
