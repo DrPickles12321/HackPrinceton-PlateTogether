@@ -23,7 +23,7 @@
         "careTeam": {
           "$clinicianUid": {
             ".write": "auth.uid === $uid || auth.uid === $clinicianUid",
-            ".validate": "auth.uid === $uid || (!data.exists() && newData.hasChild('code') && root.child('familyCodes').child(newData.child('code').val()).val() === $uid)"
+            ".validate": "auth.uid === $uid || (!data.exists() && ((newData.hasChild('code') && root.child('familyCodes').child(newData.child('code').val()).val() === $uid) || root.child('users/' + $clinicianUid + '/patients/' + $uid).exists()))"
           }
         },
         "insights":            { ".write": "auth.uid === $uid" },

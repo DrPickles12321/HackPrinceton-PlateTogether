@@ -210,22 +210,23 @@ export function FirebaseDataProvider({ children }) {
 
   // Self-heal a missing careTeam entry for links created before this feature
   // existed, so the patient can see and revoke pre-existing clinician access
-  // too. Uses the family code already stored on our own patients/ record — the
-  // same proof addPatientByCode uses — so this can't grant new access, only
-  // surface an access grant that already exists. Kept as its own effect (not
-  // folded into the subscription effect below) and depends on `patients` too,
-  // so it retries once our own patient list finishes loading rather than
-  // silently skipping if it raced ahead of viewingPatientUid being set.
+  // too. Proof is having an existing patients/ record for this patient at all
+  // (rules check this server-side) — that link already grants access under the
+  // grace clause, so materializing a careTeam entry from it doesn't grant
+  // anything new. Includes the code when we have it (post-hardening links),
+  // but doesn't require it — pre-hardening links never stored one. Kept as its
+  // own effect and depends on `patients` too, so it retries once our own
+  // patient list finishes loading rather than silently skipping if it raced
+  // ahead of viewingPatientUid being set.
   useEffect(() => {
     if (!viewingPatientUid || !uid) return
     const myPatientRecord = patients.find(p => p.uid === viewingPatientUid)
-    if (!myPatientRecord?.code) return
+    if (!myPatientRecord) return
     get(ref(db, `users/${viewingPatientUid}/careTeam/${uid}`)).then(snap => {
       if (snap.exists()) return
-      set(ref(db, `users/${viewingPatientUid}/careTeam/${uid}`), {
-        addedAt: new Date().toISOString(), code: myPatientRecord.code,
-        active: true, clinicianEmail: user?.email || uid,
-      }).catch(() => {})
+      const payload = { addedAt: new Date().toISOString(), active: true, clinicianEmail: user?.email || uid }
+      if (myPatientRecord.code) payload.code = myPatientRecord.code
+      set(ref(db, `users/${viewingPatientUid}/careTeam/${uid}`), payload).catch(() => {})
     }).catch(() => {})
   }, [viewingPatientUid, patients, uid, user])
 
