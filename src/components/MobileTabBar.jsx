@@ -1,10 +1,11 @@
 import { NavLink, useLocation } from 'react-router-dom'
 
 const TABS = [
-  { to: '/parent/daily',  label: 'Today',    icon: '🏠' },
-  { to: '/parent/weekly', label: 'Week',     icon: '📅' },
-  { to: '/parent/stats',  label: 'Insights', icon: '✨' },
-  { to: '/parent/notes',  label: 'Notes',    icon: '📓' },
+  { to: '/parent/daily',   label: 'Today',    icon: '🏠' },
+  { to: '/parent/weekly',  label: 'Week',     icon: '📅' },
+  { to: '/parent/stats',   label: 'Insights', icon: '✨' },
+  { to: '/parent/notes',   label: 'Notes',    icon: '📓' },
+  { to: '/parent/account', label: 'Account',  icon: '👤' },
 ]
 
 export default function MobileTabBar() {

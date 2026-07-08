@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import NoteComposer from './NoteComposer'
 import { localIsoDate } from '../lib/constants'
 
@@ -13,7 +14,8 @@ function toDateKey(isoString) {
   return isNaN(d.getTime()) ? 'unknown' : localIsoDate(d)
 }
 
-export default function NotesPanel({ notes, mode, onSave, notesReadByParent = {} }) {
+export default function NotesPanel({ notes, mode, onSave, onDelete, notesReadByParent = {} }) {
+  const [confirmDelete, setConfirmDelete] = useState(false)
   const today = localIsoDate()
 
   const byDay = {}
@@ -82,11 +84,32 @@ export default function NotesPanel({ notes, mode, onSave, notesReadByParent = {}
                 onSave={(body) => onSave({ body, existingNoteId: todayNote?.id || null })}
               />
               {todayNote && (
-                <div style={{ marginTop: 8 }}>
+                <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
                   {notesReadByParent[todayNote.id]
                     ? <span style={{ fontSize: 11, color: '#487A67', fontWeight: 500 }}>✓ Parent has read this note</span>
                     : <span style={{ fontSize: 11, color: '#B07828', fontWeight: 500 }}>○ Parent hasn't read this yet</span>
                   }
+                  {onDelete && (
+                    confirmDelete ? (
+                      <span style={{ fontSize: 11, color: 'var(--text-mid)', fontFamily: "'Outfit', sans-serif" }}>
+                        Delete this note?{' '}
+                        <button
+                          onClick={() => { onDelete(todayNote.id); setConfirmDelete(false) }}
+                          style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--coral)', fontSize: 11, fontWeight: 700, padding: 0, fontFamily: 'inherit' }}
+                        >Yes</button>
+                        {' / '}
+                        <button
+                          onClick={() => setConfirmDelete(false)}
+                          style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-light)', fontSize: 11, padding: 0, fontFamily: 'inherit' }}
+                        >Cancel</button>
+                      </span>
+                    ) : (
+                      <button
+                        onClick={() => setConfirmDelete(true)}
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-light)', fontSize: 11, padding: 0, fontFamily: 'inherit', textDecoration: 'underline', textUnderlineOffset: 2 }}
+                      >Delete note</button>
+                    )
+                  )}
                 </div>
               )}
             </>

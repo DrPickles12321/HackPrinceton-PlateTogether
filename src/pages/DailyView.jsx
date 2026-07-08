@@ -925,12 +925,15 @@ function DailyProgressPanel({ mealItems }) {
 
 // ─── Clinician notes sidebar ──────────────────────────────────────────────────
 
-export function ClinicianNotesSidebar({ clinicianNotes, clinicianNotesRead, markClinicianNoteRead, savedClinicianNotes, saveClinicianNote, unsaveClinicianNote, clearAllSavedNotes }) {
+export function ClinicianNotesSidebar({
+  clinicianNotes, clinicianNotesRead, markClinicianNoteRead, savedClinicianNotes, saveClinicianNote, unsaveClinicianNote, clearAllSavedNotes,
+  hiddenNoteIds = [], onHideNote, onUnhideNote,
+}) {
   const [showSaved, setShowSaved] = useState(false)
   const [showAll, setShowAll] = useState(false)
+  const [showHidden, setShowHidden] = useState(false)
   const [expandedNoteId, setExpandedNoteId] = useState(null)
   const [confirmClear, setConfirmClear] = useState(false)
-  const [hiddenNoteIds, setHiddenNoteIds] = useState([])
 
   useEffect(() => {
     if (savedClinicianNotes.length === 0) { setShowSaved(false); setConfirmClear(false) }
@@ -949,6 +952,9 @@ export function ClinicianNotesSidebar({ clinicianNotes, clinicianNotesRead, mark
   const isSaved = latest ? savedClinicianNotes.some(n => n.id === latest.id) : false
 
   const olderNotes = clinicianNotes.filter(n => n.id !== latest?.id)
+  // Derived once so the "Removed (N)" count and the list it expands to can
+  // never drift apart (e.g. if a hidden id no longer matches a real note).
+  const removedNotes = clinicianNotes.filter(n => hiddenNoteIds.includes(n.id))
 
   return (
     <div style={{ marginBottom: 22, position: 'relative', paddingTop: 14 }}>
@@ -1154,7 +1160,9 @@ export function ClinicianNotesSidebar({ clinicianNotes, clinicianNotesRead, mark
                       }}
                     >
                       <button
-                        onClick={e => { e.stopPropagation(); setHiddenNoteIds(prev => [...prev, note.id]) }}
+                        onClick={e => { e.stopPropagation(); onHideNote?.(note.id) }}
+                        title="Remove from this list"
+                        aria-label="Remove from this list"
                         style={{
                           position: 'absolute', top: 6, right: 8,
                           background: 'none', border: 'none', cursor: 'pointer',
@@ -1171,6 +1179,45 @@ export function ClinicianNotesSidebar({ clinicianNotes, clinicianNotesRead, mark
                     </div>
                   )
                 })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Removed notes — reversible, so nothing is ever truly lost from this view */}
+        {removedNotes.length > 0 && (
+          <div style={{ borderTop: '1px solid var(--border)' }}>
+            <button
+              onClick={() => setShowHidden(s => !s)}
+              style={{
+                width: '100%', padding: '7px 12px', background: 'none', border: 'none',
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                cursor: 'pointer', fontFamily: "'Lato', sans-serif",
+              }}
+            >
+              <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-light)' }}>Removed ({removedNotes.length})</span>
+              <span style={{ fontSize: 10, color: 'var(--text-light)' }}>{showHidden ? '▲' : '▼'}</span>
+            </button>
+            {showHidden && (
+              <div style={{ borderTop: '1px solid var(--border)' }}>
+                {removedNotes.map(note => (
+                  <div key={note.id} style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8,
+                    padding: '8px 12px', borderBottom: '1px solid var(--border)',
+                  }}>
+                    <p style={{ margin: 0, fontSize: 11, color: 'var(--text-light)', lineHeight: 1.5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {note.body}
+                    </p>
+                    <button
+                      onClick={() => onUnhideNote?.(note.id)}
+                      style={{
+                        flexShrink: 0, background: 'none', border: '1px solid var(--border-mid)',
+                        borderRadius: 20, padding: '3px 9px', fontSize: 10, fontWeight: 600,
+                        color: 'var(--mint)', cursor: 'pointer', fontFamily: "'Lato', sans-serif",
+                      }}
+                    >Restore</button>
+                  </div>
+                ))}
               </div>
             )}
           </div>
@@ -1197,6 +1244,7 @@ export default function DailyView() {
     mealTimesByDate, updateMealTime,
     prescribedSupplements,
     mealDistress, setMealDistress,
+    hiddenClinicianNoteIds, hideClinicianNote, unhideClinicianNote,
   } = useFirebaseData()
 
   const weekDates = useMemo(() => getWeekDates(weekOffset), [weekOffset])
@@ -1607,6 +1655,9 @@ export default function DailyView() {
             saveClinicianNote={saveClinicianNote}
             unsaveClinicianNote={unsaveClinicianNote}
             clearAllSavedNotes={clearAllSavedNotes}
+            hiddenNoteIds={hiddenClinicianNoteIds}
+            onHideNote={hideClinicianNote}
+            onUnhideNote={unhideClinicianNote}
           />
 
           <div>

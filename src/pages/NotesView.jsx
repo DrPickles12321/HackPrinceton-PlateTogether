@@ -1,11 +1,9 @@
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
 import { useOutletContext } from 'react-router-dom'
 import { useIsMobile } from '../hooks/useIsMobile'
 import { useFirebaseData } from '../contexts/FirebaseDataContext'
 import { ParentNoteSection, ClinicianNotesSidebar } from './DailyView'
 import { localIsoDate } from '../lib/constants'
-import DeleteAccountModal from '../components/DeleteAccountModal'
-import CareTeamCard from '../components/CareTeamCard'
 
 const TODAY_ISO = localIsoDate()
 
@@ -14,9 +12,8 @@ export default function NotesView() {
     clinicianNotes = [], parentNotes = [], clinicianNotesRead = {}, savedClinicianNotes = [],
     saveParentNote, markClinicianNoteRead, saveClinicianNote, unsaveClinicianNote, clearAllSavedNotes,
   } = useOutletContext()
-  const { deleteAccount, careTeam, revokeCareTeamAccess } = useFirebaseData()
+  const { hiddenClinicianNoteIds, hideClinicianNote, unhideClinicianNote } = useFirebaseData()
   const isMobile = useIsMobile()
-  const [showDelete, setShowDelete] = useState(false)
 
   useEffect(() => { document.title = 'Notes · Plate Together' }, [])
 
@@ -39,6 +36,9 @@ export default function NotesView() {
         saveClinicianNote={saveClinicianNote}
         unsaveClinicianNote={unsaveClinicianNote}
         clearAllSavedNotes={clearAllSavedNotes}
+        hiddenNoteIds={hiddenClinicianNoteIds}
+        onHideNote={hideClinicianNote}
+        onUnhideNote={unhideClinicianNote}
       />
 
       <ParentNoteSection
@@ -46,32 +46,6 @@ export default function NotesView() {
         selectedDate={TODAY_ISO}
         onSave={body => saveParentNote({ date: TODAY_ISO, body, existingNoteId: todayNote?.id || null })}
       />
-
-      <CareTeamCard careTeam={careTeam} onRevoke={revokeCareTeamAccess} />
-
-      {/* Account · danger zone */}
-      <div style={{
-        marginTop: 28, padding: '18px 20px', borderRadius: 16,
-        border: '1px solid var(--pink-mid)', background: 'var(--pink-light)',
-      }}>
-        <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--pink)', letterSpacing: '0.6px', textTransform: 'uppercase', marginBottom: 8 }}>
-          Account
-        </div>
-        <p style={{ fontSize: 13, color: 'var(--text-mid)', lineHeight: 1.55, margin: '0 0 14px' }}>
-          Deleting your account permanently removes all of your data. This can't be undone.
-        </p>
-        <button
-          type="button"
-          onClick={() => setShowDelete(true)}
-          style={{
-            border: '1.5px solid var(--pink)', background: '#fff', color: 'var(--pink)',
-            borderRadius: 10, padding: '9px 16px', fontSize: 13, fontWeight: 600,
-            cursor: 'pointer', fontFamily: 'inherit',
-          }}
-        >Delete account</button>
-      </div>
-
-      <DeleteAccountModal open={showDelete} onClose={() => setShowDelete(false)} onConfirm={deleteAccount} />
     </div>
   )
 }

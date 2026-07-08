@@ -81,6 +81,7 @@ export function FirebaseDataProvider({ children }) {
   const [supplementLog, setSupplementLog]             = useState({})
   const [clinicianNotesRead, setClinicianNotesRead]   = useState({})
   const [savedClinicianNotes, setSavedClinicianNotes] = useState([])
+  const [hiddenClinicianNoteIds, setHiddenClinicianNoteIds] = useState([]) // dismissed-from-view, persisted
   const [ownClinicianNotes, setOwnClinicianNotes]     = useState([])
   const [foodItems, setFoodItems]                     = useState([])
   const [familyCode, setFamilyCode]                   = useState(null)
@@ -91,6 +92,7 @@ export function FirebaseDataProvider({ children }) {
   const [patients, setPatients]                       = useState([])   // [{uid, email}]
   const [viewingPatientUid, setViewingPatientUid]     = useState(null)
   const [patientAccessDenied, setPatientAccessDenied] = useState(false) // true if the viewed patient revoked access
+  const [patientRetryNonce, setPatientRetryNonce]     = useState(0)     // bump to re-attempt a denied subscription
   const [patientSos, setPatientSos]                   = useState([])   // viewed patient's SOS
   const [ownAssignedChallenges, setOwnAssignedChallenges]         = useState([]) // clinician-assigned challenge foods (own)
   const [patientAssignedChallenges, setPatientAssignedChallenges] = useState([]) // viewed patient's assigned challenges
@@ -113,6 +115,7 @@ export function FirebaseDataProvider({ children }) {
       setSupplementLog({})
       setClinicianNotesRead({})
       setSavedClinicianNotes([])
+      setHiddenClinicianNoteIds([])
       setOwnClinicianNotes([])
       setFoodItems([])
       setFamilyCode(null)
@@ -171,6 +174,11 @@ export function FirebaseDataProvider({ children }) {
     unsubs.push(onValue(ref(db, `${base}/savedClinicianNotes`), snap => {
       const val = snap.val()
       setSavedClinicianNotes(val ? Object.values(val) : [])
+    }))
+
+    unsubs.push(onValue(ref(db, `${base}/hiddenClinicianNoteIds`), snap => {
+      const val = snap.val()
+      setHiddenClinicianNoteIds(val ? Object.keys(val) : [])
     }))
 
     unsubs.push(onValue(ref(db, `${base}/clinicianNotes`), snap => {
@@ -282,7 +290,7 @@ export function FirebaseDataProvider({ children }) {
       setPatientAssignedChallenges(Object.entries(val).map(([id, v]) => ({ id, ...v })))
     }))
     return () => unsubs.forEach(u => u())
-  }, [viewingPatientUid])
+  }, [viewingPatientUid, patientRetryNonce])
 
   // ── Watch every linked patient for an open SOS (patient-list badge) ────────
   useEffect(() => {
@@ -535,6 +543,19 @@ export function FirebaseDataProvider({ children }) {
     setSavedClinicianNotes([])
   }
 
+  // Parent-side dismissal of an old clinician note from their own view — not a
+  // real delete (only the clinician can delete their own note), just hides it
+  // from this family's history list. Persisted (own tree) so it survives reload.
+  function hideClinicianNote(noteId) {
+    if (!uid || !noteId) return
+    set(ref(db, `users/${uid}/hiddenClinicianNoteIds/${noteId}`), true)
+  }
+
+  function unhideClinicianNote(noteId) {
+    if (!uid || !noteId) return
+    set(ref(db, `users/${uid}/hiddenClinicianNoteIds/${noteId}`), null)
+  }
+
   function writeClinicianNote({ body, existingNoteId }) {
     if (!viewingPatientUid) return
     // The patientClinicianNotes onValue listener full-replaces the list from
@@ -610,6 +631,16 @@ export function FirebaseDataProvider({ children }) {
     update(ref(db, `users/${uid}/careTeam/${clinicianUid}`), { active: false })
   }
 
+  // Parent restores a previously-revoked clinician's access. Only the parent can
+  // flip this back on (careTeam .write allows the owner), so it's a deliberate
+  // re-grant. The clinician's existing patients/ link is untouched by revoke, so
+  // flipping active back to true immediately re-opens read/write access (the
+  // clinician may need to reselect the patient to re-establish their listeners).
+  function reEnableCareTeamAccess(clinicianUid) {
+    if (!uid || !clinicianUid) return
+    update(ref(db, `users/${uid}/careTeam/${clinicianUid}`), { active: true })
+  }
+
   // Permanently delete the signed-in account: the family-code mapping, the whole
   // users/{uid} record, then the Firebase Auth user. Data-first so we still have
   // permission to delete it; the steps are idempotent, so a reauth retry is safe.
@@ -651,6 +682,9 @@ export function FirebaseDataProvider({ children }) {
       saveClinicianNote,
       unsaveClinicianNote,
       clearAllSavedNotes,
+      hiddenClinicianNoteIds,
+      hideClinicianNote,
+      unhideClinicianNote,
       clinicianNotes,
       writeClinicianNote,
       deleteClinicianNote,
@@ -665,6 +699,7 @@ export function FirebaseDataProvider({ children }) {
       viewingPatientUid,
       setViewingPatientUid,
       patientAccessDenied,
+      retryPatientAccess: () => setPatientRetryNonce(n => n + 1),
       addPatientByCode,
       removePatient,
       deleteAccount,
@@ -679,6 +714,7 @@ export function FirebaseDataProvider({ children }) {
       removeAssignedChallenge,
       careTeam,
       revokeCareTeamAccess,
+      reEnableCareTeamAccess,
       mySos,
       sendSos,
       patientSos,

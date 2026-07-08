@@ -1,24 +1,14 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { Outlet, useLocation } from 'react-router-dom'
 import { useFirebaseData } from '../contexts/FirebaseDataContext'
-import { computeWeeklyTrend } from '../lib/trends'
-import TrendChart from '../components/TrendChart'
-import { computeDistressSummary } from '../lib/weekSummary'
-import { computeMealTiming } from '../lib/mealTiming'
-import ChallengeAssigner from '../components/ChallengeAssigner'
 import WelcomeModal from '../components/WelcomeModal'
-import { generateClinicianDigest } from '../lib/aiInsights'
-import { getWeekIsoDates } from '../lib/insights'
-import { detectWeeklyAnomalies } from '../lib/anomalyDetection'
-import WeeklyGrid from '../components/WeeklyGrid'
-import WeeklyInsights from '../components/WeeklyInsights'
-import NotesPanel from '../components/NotesPanel'
 import DailyNutritionSummary from '../components/nutrition/DailyNutritionSummary'
-import WeeklyGoals from '../components/WeeklyGoals'
-import NutritionalTargets from '../components/NutritionalTargets'
-import SosAlert from '../components/SosAlert'
+import ClinicianTabBar from '../components/ClinicianTabBar'
 import { useIsMobile } from '../hooks/useIsMobile'
 
-function useReveal(ref) {
+// ─── Shared helpers, used across the clinician sub-pages ───────────────────
+
+export function useReveal(ref) {
   useEffect(() => {
     const el = ref.current
     if (!el) return
@@ -31,7 +21,7 @@ function useReveal(ref) {
   }, [ref])
 }
 
-function RevealSection({ children, eyebrow, delay = 0, style = {} }) {
+export function RevealSection({ children, eyebrow, delay = 0, style = {} }) {
   const ref = useRef(null)
   useReveal(ref)
   return (
@@ -46,6 +36,92 @@ function RevealSection({ children, eyebrow, delay = 0, style = {} }) {
   )
 }
 
+export function SectionCard({ children, style = {} }) {
+  return (
+    <div style={{
+      background: 'var(--surface)',
+      borderRadius: 16,
+      border: '1px solid var(--border)',
+      padding: '24px 28px',
+      ...style,
+    }}>
+      {children}
+    </div>
+  )
+}
+
+export function ParentNotesPanel({ notes = [], onMarkRead }) {
+  const sorted = [...notes].sort((a, b) => (b.date || '').localeCompare(a.date || ''))
+  const unreadCount = sorted.filter(n => !n.read_at).length
+
+  return (
+    <div>
+      {unreadCount > 0 && (
+        <span style={{
+          display: 'inline-block', marginBottom: 12,
+          fontSize: 10, fontWeight: 700, letterSpacing: '1px',
+          textTransform: 'uppercase', color: 'var(--peach)',
+          background: 'var(--peach-light)', borderRadius: 999,
+          padding: '3px 10px', border: '1px solid var(--peach-mid)',
+        }}>
+          {unreadCount} unread
+        </span>
+      )}
+
+      {sorted.length === 0 ? (
+        <p style={{ fontSize: 13, color: 'var(--text-light)', fontStyle: 'italic' }}>
+          No notes from the parent yet.
+        </p>
+      ) : (
+        <div style={{ borderTop: '1px solid var(--border)' }}>
+          {sorted.map(note => {
+            const isUnread = !note.read_at
+            return (
+              <div key={note.date} className="clv-timeline-item">
+                <div className="clv-timeline-date">
+                  {new Date(note.date + 'T12:00:00').toLocaleDateString('en-US', {
+                    weekday: 'short', month: 'short', day: 'numeric',
+                  })}
+                </div>
+                <div>
+                  {isUnread && (
+                    <span style={{
+                      display: 'inline-block', fontSize: 9, fontWeight: 700,
+                      letterSpacing: '1px', textTransform: 'uppercase',
+                      color: 'var(--peach)', marginBottom: 4,
+                    }}>New</span>
+                  )}
+                  <p style={{
+                    fontSize: 13, color: 'var(--text-dark)', lineHeight: 1.6,
+                    fontWeight: isUnread ? 500 : 400,
+                  }}>
+                    {note.body}
+                  </p>
+                </div>
+                <div style={{ paddingTop: 2 }}>
+                  {isUnread ? (
+                    <button
+                      onClick={() => onMarkRead?.(note.id)}
+                      className="clv-pill-btn"
+                      style={{ fontSize: 11, padding: '4px 12px' }}
+                    >
+                      Mark read
+                    </button>
+                  ) : (
+                    <span style={{ fontSize: 11, color: 'var(--mint)', fontWeight: 600 }}>
+                      Read
+                    </span>
+                  )}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
 const DIGEST_ACCENT = {
   pattern:     'var(--border-mid)',
   improvement: 'var(--mint)',
@@ -57,7 +133,7 @@ const DIGEST_TYPE_LABEL = {
   watch:       'Watch',
 }
 
-function ClinicianDigestSection({ allMealItems, mealStatuses, mealTimesByDate = {}, parentNotes }) {
+export function ClinicianDigestSection({ allMealItems, mealStatuses, mealTimesByDate = {}, parentNotes, generateClinicianDigest, getWeekIsoDates, detectWeeklyAnomalies }) {
   const [digest, setDigest] = useState(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
@@ -144,7 +220,7 @@ function ClinicianDigestSection({ allMealItems, mealStatuses, mealTimesByDate = 
   )
 }
 
-function ClinicianSupplementEditor({ prescribedSupplements, onSave }) {
+export function ClinicianSupplementEditor({ prescribedSupplements, onSave }) {
   const [input, setInput] = useState('')
   const [saved, setSaved] = useState(false)
 
@@ -219,135 +295,28 @@ function ClinicianSupplementEditor({ prescribedSupplements, onSave }) {
   )
 }
 
-function ParentNotesPanel({ notes = [], onMarkRead }) {
-  const sorted = [...notes].sort((a, b) => (b.date || '').localeCompare(a.date || ''))
-  const unreadCount = sorted.filter(n => !n.read_at).length
-
-  return (
-    <div>
-      {unreadCount > 0 && (
-        <span style={{
-          display: 'inline-block', marginBottom: 12,
-          fontSize: 10, fontWeight: 700, letterSpacing: '1px',
-          textTransform: 'uppercase', color: 'var(--peach)',
-          background: 'var(--peach-light)', borderRadius: 999,
-          padding: '3px 10px', border: '1px solid var(--peach-mid)',
-        }}>
-          {unreadCount} unread
-        </span>
-      )}
-
-      {sorted.length === 0 ? (
-        <p style={{ fontSize: 13, color: 'var(--text-light)', fontStyle: 'italic' }}>
-          No notes from the parent yet.
-        </p>
-      ) : (
-        <div style={{ borderTop: '1px solid var(--border)' }}>
-          {sorted.map(note => {
-            const isUnread = !note.read_at
-            return (
-              <div key={note.date} className="clv-timeline-item">
-                <div className="clv-timeline-date">
-                  {new Date(note.date + 'T12:00:00').toLocaleDateString('en-US', {
-                    weekday: 'short', month: 'short', day: 'numeric',
-                  })}
-                </div>
-                <div>
-                  {isUnread && (
-                    <span style={{
-                      display: 'inline-block', fontSize: 9, fontWeight: 700,
-                      letterSpacing: '1px', textTransform: 'uppercase',
-                      color: 'var(--peach)', marginBottom: 4,
-                    }}>New</span>
-                  )}
-                  <p style={{
-                    fontSize: 13, color: 'var(--text-dark)', lineHeight: 1.6,
-                    fontStyle: isUnread ? 'normal' : 'normal',
-                    fontWeight: isUnread ? 500 : 400,
-                  }}>
-                    {note.body}
-                  </p>
-                </div>
-                <div style={{ paddingTop: 2 }}>
-                  {isUnread ? (
-                    <button
-                      onClick={() => onMarkRead?.(note.id)}
-                      className="clv-pill-btn"
-                      style={{ fontSize: 11, padding: '4px 12px' }}
-                    >
-                      Mark read
-                    </button>
-                  ) : (
-                    <span style={{ fontSize: 11, color: 'var(--mint)', fontWeight: 600 }}>
-                      Read
-                    </span>
-                  )}
-                </div>
-              </div>
-            )
-          })}
-        </div>
-      )}
-    </div>
-  )
-}
-
-function SectionCard({ children, style = {} }) {
-  return (
-    <div style={{
-      background: 'var(--surface)',
-      borderRadius: 16,
-      border: '1px solid var(--border)',
-      padding: '24px 28px',
-      ...style,
-    }}>
-      {children}
-    </div>
-  )
-}
+// ─── Layout: header, patient selector, gating, tab nav + <Outlet> ──────────
 
 export default function ClinicianView() {
   const {
-    parentNotesArray: parentNotes,
-    allMealItems: parentMealItems,
-    mealStatuses: parentMealStatuses,
-    mealDistress: parentMealDistress,
-    activeMealTimesByDate: parentMealTimesByDate,
-    clinicianNotesRead,
-    markPatientParentNoteReadById,
     patients,
     viewingPatientUid,
     setViewingPatientUid,
     patientAccessDenied,
+    retryPatientAccess,
     addPatientByCode,
     removePatient,
-    prescribedSupplements,
-    savePrescribedSupplements,
-    clinicianNotes,
-    writeClinicianNote,
-    patientSos,
     patientsWithOpenSos,
-    acknowledgeSos,
-    assignedChallenges,
-    addAssignedChallenge,
-    removeAssignedChallenge,
+    allMealItems: parentMealItems,
   } = useFirebaseData()
 
   const [addCodeInput, setAddCodeInput] = useState('')
   const [addCodeError, setAddCodeError]  = useState('')
   const [addCodeLoading, setAddCodeLoading] = useState(false)
-  const [selectedDay, setSelectedDay] = useState(null)
   const [confirmUnlink, setConfirmUnlink] = useState(false)
-  const trend = useMemo(() => computeWeeklyTrend({ mealStatuses: parentMealStatuses }), [parentMealStatuses])
-  const distressSummary = useMemo(
-    () => computeDistressSummary(parentMealDistress, getWeekIsoDates(0)),
-    [parentMealDistress]
-  )
-  const mealTiming = useMemo(
-    () => computeMealTiming(parentMealTimesByDate, parentMealStatuses, parentMealItems, getWeekIsoDates(0)),
-    [parentMealTimesByDate, parentMealStatuses, parentMealItems]
-  )
+  const [selectedDay, setSelectedDay] = useState(null)
   const isMobile = useIsMobile()
+  const { pathname } = useLocation()
 
   useEffect(() => { document.title = 'Dashboard · Plate Together' }, [])
 
@@ -361,12 +330,10 @@ export default function ClinicianView() {
     else { setAddCodeInput('') }
   }
 
-  function handleSaveNote({ body, existingNoteId }) {
-    writeClinicianNote({ body, existingNoteId })
-  }
+  const showTabs = viewingPatientUid && !patientAccessDenied
 
   return (
-    <div style={{ maxWidth: 1280, width: '100%', margin: '0 auto', minWidth: 0, boxSizing: 'border-box', padding: isMobile ? '28px 16px 64px' : '52px 48px 80px' }}>
+    <div style={{ maxWidth: 1280, width: '100%', margin: '0 auto', minWidth: 0, boxSizing: 'border-box', padding: isMobile ? '28px 16px 84px' : '52px 48px 80px' }}>
 
       {/* ── Page header ─────────────────────────────────────────────────── */}
       <div style={{
@@ -377,7 +344,7 @@ export default function ClinicianView() {
         flexWrap: 'wrap',
         paddingBottom: isMobile ? 28 : 44,
         borderBottom: '1px solid var(--border)',
-        marginBottom: isMobile ? 32 : 52,
+        marginBottom: isMobile ? 24 : 36,
       }}>
         {/* Title column */}
         <div>
@@ -497,156 +464,21 @@ export default function ClinicianView() {
             <div style={{ fontWeight: 700, fontSize: 15, color: 'var(--text-dark)', marginBottom: 4 }}>
               Access removed
             </div>
-            <p style={{ fontSize: 13.5, color: 'var(--text-mid)', lineHeight: 1.55, margin: 0 }}>
+            <p style={{ fontSize: 13.5, color: 'var(--text-mid)', lineHeight: 1.55, margin: '0 0 12px' }}>
               {patients.find(p => p.uid === viewingPatientUid)?.email || 'This patient'} has removed your access
-              to their logs. If this was a mistake, ask them to grant you access again.
+              to their logs. If this was a mistake, ask them to grant you access again — then tap Try again.
             </p>
+            <button
+              type="button"
+              onClick={() => retryPatientAccess?.()}
+              style={{ border: '1px solid var(--pink)', background: 'white', color: 'var(--pink)', borderRadius: 8, padding: '6px 14px', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}
+            >Try again</button>
           </div>
         </div>
       ) : (
         <>
-          <SosAlert
-            sos={patientSos}
-            patientEmail={patients.find(p => p.uid === viewingPatientUid)?.email || 'Patient'}
-            onAcknowledge={acknowledgeSos}
-          />
-          <RevealSection eyebrow="Week at a glance">
-            <WeeklyGrid
-              onDayClick={(day, date) => setSelectedDay({ key: day, date })}
-              parentNotes={parentNotes}
-              onMarkNoteRead={markPatientParentNoteReadById}
-              parentMealItems={parentMealItems}
-              mealStatuses={parentMealStatuses}
-            />
-          </RevealSection>
-
-          <RevealSection eyebrow="Progress" delay={1}>
-            <WeeklyInsights allMealItems={parentMealItems} mealStatuses={parentMealStatuses} />
-          </RevealSection>
-
-          <RevealSection eyebrow="Eating rhythm">
-            <SectionCard>
-              <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 14, flexWrap: 'wrap', gap: 8 }}>
-                <div style={{ fontWeight: 700, fontSize: 15, color: 'var(--text-dark)' }}>Meal-time regularity</div>
-                <span style={{ fontSize: 12, color: 'var(--text-light)' }}>Consistent timing supports recovery</span>
-              </div>
-              {mealTiming.evaluatedCount === 0 ? (
-                <p style={{ fontSize: 13, color: 'var(--text-light)', fontStyle: 'italic', margin: 0 }}>
-                  Not enough logged days yet to gauge timing.
-                </p>
-              ) : (
-                <>
-                  <p style={{ fontSize: 13, color: 'var(--text-mid)', margin: '0 0 14px' }}>
-                    <strong style={{ color: 'var(--text-dark)' }}>{mealTiming.consistentCount} of {mealTiming.evaluatedCount}</strong> meals kept a steady time this week.
-                  </p>
-                  <div style={{ display: 'grid', gap: 8 }}>
-                    {mealTiming.meals.filter(m => m.loggedDays > 0).map(m => (
-                      <div key={m.key} style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-                        <span style={{ fontSize: 15, width: 20, textAlign: 'center' }}>{m.icon}</span>
-                        <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-dark)', width: 78 }}>{m.label}</span>
-                        <span style={{ fontSize: 13, color: 'var(--text-mid)' }}>~{m.typicalTime}</span>
-                        <span style={{ fontSize: 12, color: 'var(--text-light)' }}>· {m.loggedDays} day{m.loggedDays === 1 ? '' : 's'}</span>
-                        {m.loggedDays >= 2 && (
-                          <span style={{
-                            marginLeft: 'auto', fontSize: 11, fontWeight: 600, padding: '2px 9px', borderRadius: 8,
-                            color: m.consistent ? 'var(--mint)' : 'var(--peach)',
-                            background: m.consistent ? 'var(--mint-light)' : 'var(--peach-light)',
-                            border: `1px solid ${m.consistent ? 'var(--mint-mid)' : 'var(--peach-mid)'}`,
-                          }}>
-                            {m.consistent ? 'steady' : `varies ±${Math.round(m.spreadMin / 60 * 10) / 10}h`}
-                          </span>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </>
-              )}
-            </SectionCard>
-          </RevealSection>
-
-          <RevealSection eyebrow="Progress over time">
-            <SectionCard>
-              <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 12, flexWrap: 'wrap', gap: 8 }}>
-                <div style={{ fontWeight: 700, fontSize: 15, color: 'var(--text-dark)' }}>Last 6 weeks</div>
-                <span style={{ fontSize: 12, color: 'var(--text-light)' }}>Meals logged and okay-rate per week</span>
-              </div>
-              {distressSummary.count > 0 && (
-                <div style={{
-                  display: 'inline-flex', alignItems: 'center', gap: 8, marginBottom: 14,
-                  background: 'var(--surface-warm)', border: '1px solid var(--border)',
-                  borderRadius: 10, padding: '7px 12px', fontSize: 13, color: 'var(--text-mid)',
-                }}>
-                  <span style={{ fontWeight: 700, color: 'var(--text-dark)' }}>Distress this week:</span>
-                  before {distressSummary.avgPre ?? '—'} → after {distressSummary.avgPost ?? '—'}
-                  <span style={{ fontSize: 11, color: 'var(--text-light)' }}>({distressSummary.count} rated, 1–5)</span>
-                </div>
-              )}
-              {trend.some(w => w.logged > 0)
-                ? <TrendChart trend={trend} />
-                : <p style={{ fontSize: 13, color: 'var(--text-light)', fontStyle: 'italic', margin: 0 }}>No logged weeks yet.</p>}
-            </SectionCard>
-          </RevealSection>
-
-          <RevealSection eyebrow="Clinical digest">
-            <SectionCard>
-              <ClinicianDigestSection
-                key={viewingPatientUid}
-                allMealItems={parentMealItems}
-                mealStatuses={parentMealStatuses}
-                mealTimesByDate={parentMealTimesByDate}
-                parentNotes={parentNotes}
-              />
-            </SectionCard>
-          </RevealSection>
-
-          <RevealSection eyebrow="Parent notes" delay={1}>
-            <SectionCard>
-              <ParentNotesPanel notes={parentNotes} onMarkRead={markPatientParentNoteReadById} />
-            </SectionCard>
-          </RevealSection>
-
-          <RevealSection eyebrow="Challenge foods">
-            <SectionCard>
-              <ChallengeAssigner
-                challenges={assignedChallenges}
-                onAdd={addAssignedChallenge}
-                onRemove={removeAssignedChallenge}
-              />
-            </SectionCard>
-          </RevealSection>
-
-          <RevealSection eyebrow="Weekly goals">
-            <SectionCard>
-              <WeeklyGoals allMealItems={parentMealItems} />
-            </SectionCard>
-          </RevealSection>
-
-          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 16, marginTop: 32 }}>
-            <RevealSection eyebrow="Supplements" style={{ marginTop: 0 }}>
-              <SectionCard style={{ height: '100%' }}>
-                <ClinicianSupplementEditor
-                  prescribedSupplements={prescribedSupplements}
-                  onSave={savePrescribedSupplements}
-                />
-              </SectionCard>
-            </RevealSection>
-            <RevealSection eyebrow="Nutritional targets" delay={1} style={{ marginTop: 0 }}>
-              <SectionCard style={{ height: '100%' }}>
-                <NutritionalTargets />
-              </SectionCard>
-            </RevealSection>
-          </div>
-
-          <RevealSection eyebrow="Session notes">
-            <SectionCard>
-              <NotesPanel
-                notes={clinicianNotes}
-                mode="clinician"
-                onSave={handleSaveNote}
-                notesReadByParent={clinicianNotesRead}
-              />
-            </SectionCard>
-          </RevealSection>
+          {!isMobile && <ClinicianTabBar variant="desktop" />}
+          <Outlet context={{ setSelectedDay }} />
         </>
       )}
 
@@ -657,6 +489,8 @@ export default function ClinicianView() {
           onClose={() => setSelectedDay(null)}
         />
       )}
+
+      {isMobile && showTabs && <ClinicianTabBar variant="mobile" />}
 
       <WelcomeModal role="clinician" />
     </div>

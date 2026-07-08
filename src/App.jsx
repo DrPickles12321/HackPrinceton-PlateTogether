@@ -10,7 +10,12 @@ import DailyView from './pages/DailyView'
 import WeeklyView from './pages/WeeklyView'
 import StatsView from './pages/StatsView'
 import NotesView from './pages/NotesView'
+import AccountView from './pages/AccountView'
 import ClinicianView from './pages/ClinicianView'
+import ClinicianOverview from './pages/ClinicianOverview'
+import ClinicianInsights from './pages/ClinicianInsights'
+import ClinicianCarePlan from './pages/ClinicianCarePlan'
+import ClinicianNotesView from './pages/ClinicianNotesView'
 
 function AppLayout() {
   const { user, role } = useAuth()
@@ -63,8 +68,15 @@ function AppLayout() {
           <Route path="weekly" element={<WeeklyView />} />
           <Route path="stats" element={<StatsView />} />
           <Route path="notes" element={<NotesView />} />
+          <Route path="account" element={<AccountView />} />
         </Route>
-        <Route path="/clinician" element={<ClinicianView />} />
+        <Route path="/clinician" element={<ClinicianView />}>
+          <Route index element={<Navigate to="overview" replace />} />
+          <Route path="overview" element={<ClinicianOverview />} />
+          <Route path="insights" element={<ClinicianInsights />} />
+          <Route path="care-plan" element={<ClinicianCarePlan />} />
+          <Route path="notes" element={<ClinicianNotesView />} />
+        </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </>

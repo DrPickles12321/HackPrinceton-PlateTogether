@@ -6,9 +6,11 @@ import { useFirebaseData } from '../contexts/FirebaseDataContext'
 import { useIsMobile } from '../hooks/useIsMobile'
 
 const PARENT_TABS = [
-  { to: '/parent/daily',  label: 'Daily' },
-  { to: '/parent/weekly', label: 'Weekly' },
-  { to: '/parent/stats',  label: 'Insights' },
+  { to: '/parent/daily',   label: 'Daily' },
+  { to: '/parent/weekly',  label: 'Weekly' },
+  { to: '/parent/stats',   label: 'Insights' },
+  { to: '/parent/notes',   label: 'Notes' },
+  { to: '/parent/account', label: 'Account' },
 ]
 
 export default function Navbar() {
