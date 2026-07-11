@@ -10,7 +10,7 @@ const TODAY_ISO = localIsoDate()
 export default function NotesView() {
   const {
     clinicianNotes = [], parentNotes = [], clinicianNotesRead = {}, savedClinicianNotes = [],
-    saveParentNote, markClinicianNoteRead, saveClinicianNote, unsaveClinicianNote, clearAllSavedNotes,
+    saveParentNote, deleteParentNote, markClinicianNoteRead, saveClinicianNote, unsaveClinicianNote, clearAllSavedNotes,
   } = useOutletContext()
   const { hiddenClinicianNoteIds, hideClinicianNote, unhideClinicianNote } = useFirebaseData()
   const isMobile = useIsMobile()
@@ -45,6 +45,7 @@ export default function NotesView() {
         note={todayNote}
         selectedDate={TODAY_ISO}
         onSave={body => saveParentNote({ date: TODAY_ISO, body, existingNoteId: todayNote?.id || null })}
+        onDelete={deleteParentNote}
       />
     </div>
   )

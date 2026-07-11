@@ -50,8 +50,14 @@ export function SectionCard({ children, style = {} }) {
   )
 }
 
-export function ParentNotesPanel({ notes = [], onMarkRead }) {
+export function ParentNotesPanel({ notes = [], onMarkRead, hiddenNoteIds = [], onHideNote, onUnhideNote }) {
+  const [showHidden, setShowHidden] = useState(false)
+  const [confirmHideDate, setConfirmHideDate] = useState(null)
+  // Keyed by date (not id) — parentNotes are stored one-per-date in Firebase,
+  // and older/manually-seeded notes aren't guaranteed to have an id.
   const sorted = [...notes].sort((a, b) => (b.date || '').localeCompare(a.date || ''))
+    .filter(n => !hiddenNoteIds.includes(n.date))
+  const removedNotes = notes.filter(n => hiddenNoteIds.includes(n.date))
   const unreadCount = sorted.filter(n => !n.read_at).length
 
   return (
@@ -98,7 +104,7 @@ export function ParentNotesPanel({ notes = [], onMarkRead }) {
                     {note.body}
                   </p>
                 </div>
-                <div style={{ paddingTop: 2 }}>
+                <div style={{ paddingTop: 2, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
                   {isUnread ? (
                     <button
                       onClick={() => onMarkRead?.(note.id)}
@@ -112,10 +118,70 @@ export function ParentNotesPanel({ notes = [], onMarkRead }) {
                       Read
                     </span>
                   )}
+                  {onHideNote && (
+                    confirmHideDate === note.date ? (
+                      <span style={{ fontSize: 10, color: 'var(--text-light)', whiteSpace: 'nowrap' }}>
+                        Hide?{' '}
+                        <button
+                          onClick={() => { onHideNote(note.date); setConfirmHideDate(null) }}
+                          style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--coral)', fontWeight: 700, fontSize: 10, padding: 0, fontFamily: 'inherit' }}
+                        >Yes</button>
+                        {' / '}
+                        <button
+                          onClick={() => setConfirmHideDate(null)}
+                          style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-light)', fontSize: 10, padding: 0, fontFamily: 'inherit' }}
+                        >Cancel</button>
+                      </span>
+                    ) : (
+                      <button
+                        onClick={() => setConfirmHideDate(note.date)}
+                        title="Hide from my view"
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-light)', fontSize: 10, padding: 0, fontFamily: 'inherit' }}
+                      >Hide</button>
+                    )
+                  )}
                 </div>
               </div>
             )
           })}
+        </div>
+      )}
+
+      {onUnhideNote && removedNotes.length > 0 && (
+        <div style={{ borderTop: '1px solid var(--border)', marginTop: sorted.length ? 0 : 12 }}>
+          <button
+            onClick={() => setShowHidden(s => !s)}
+            style={{
+              width: '100%', padding: '7px 0', background: 'none', border: 'none',
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              cursor: 'pointer', fontFamily: "'Lato', sans-serif",
+            }}
+          >
+            <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-light)' }}>Hidden ({removedNotes.length})</span>
+            <span style={{ fontSize: 10, color: 'var(--text-light)' }}>{showHidden ? '▲' : '▼'}</span>
+          </button>
+          {showHidden && (
+            <div style={{ borderTop: '1px solid var(--border)' }}>
+              {removedNotes.map(note => (
+                <div key={note.date} style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8,
+                  padding: '8px 0', borderBottom: '1px solid var(--border)',
+                }}>
+                  <p style={{ margin: 0, fontSize: 11, color: 'var(--text-light)', lineHeight: 1.5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {note.body}
+                  </p>
+                  <button
+                    onClick={() => onUnhideNote(note.date)}
+                    style={{
+                      flexShrink: 0, background: 'none', border: '1px solid var(--border-mid)',
+                      borderRadius: 20, padding: '3px 9px', fontSize: 10, fontWeight: 600,
+                      color: 'var(--mint)', cursor: 'pointer', fontFamily: "'Lato', sans-serif",
+                    }}
+                  >Restore</button>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
     </div>

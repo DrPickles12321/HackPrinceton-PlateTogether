@@ -35,11 +35,17 @@
         "clinicianNotesRead":  { ".write": "auth.uid === $uid" },
         "savedClinicianNotes": { ".write": "auth.uid === $uid" },
         "hiddenClinicianNoteIds": { ".write": "auth.uid === $uid" },
+        "hiddenParentNoteIds":    { ".write": "auth.uid === $uid" },
         "consent":             { ".write": "auth.uid === $uid" },
 
         "nutritionalTargets":    { ".write": "auth.uid === $uid || (root.child('users/' + auth.uid + '/patients/' + $uid).exists() && root.child('users/' + $uid + '/careTeam/' + auth.uid + '/active').val() !== false)" },
         "prescribedSupplements": { ".write": "auth.uid === $uid || (root.child('users/' + auth.uid + '/patients/' + $uid).exists() && root.child('users/' + $uid + '/careTeam/' + auth.uid + '/active').val() !== false)" },
-        "parentNotes":           { ".write": "auth.uid === $uid || (root.child('users/' + auth.uid + '/patients/' + $uid).exists() && root.child('users/' + $uid + '/careTeam/' + auth.uid + '/active').val() !== false)" },
+        "parentNotes": {
+          ".write": "auth.uid === $uid",
+          "$date": {
+            ".write": "auth.uid === $uid || (data.exists() && newData.exists() && newData.child('body').val() === data.child('body').val() && newData.child('id').val() === data.child('id').val() && newData.child('date').val() === data.child('date').val() && newData.child('created_at').val() === data.child('created_at').val() && root.child('users/' + auth.uid + '/patients/' + $uid).exists() && root.child('users/' + $uid + '/careTeam/' + auth.uid + '/active').val() !== false)"
+          }
+        },
         "clinicianNotes":        { ".write": "root.child('users/' + auth.uid + '/patients/' + $uid).exists() && root.child('users/' + $uid + '/careTeam/' + auth.uid + '/active').val() !== false" },
         "sos":                   { ".write": "auth.uid === $uid || (root.child('users/' + auth.uid + '/patients/' + $uid).exists() && root.child('users/' + $uid + '/careTeam/' + auth.uid + '/active').val() !== false)" },
         "assignedChallenges":    { ".write": "auth.uid === $uid || (root.child('users/' + auth.uid + '/patients/' + $uid).exists() && root.child('users/' + $uid + '/careTeam/' + auth.uid + '/active').val() !== false)" }

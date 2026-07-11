@@ -753,14 +753,16 @@ function ProgressRing({ value, target, color, darkColor, label }) {
 
 // ─── Parent note section ──────────────────────────────────────────────────────
 
-export function ParentNoteSection({ note, selectedDate, onSave }) {
+export function ParentNoteSection({ note, selectedDate, onSave, onDelete }) {
   const [body, setBody] = useState(note?.body || '')
   const [isSaving, setIsSaving] = useState(false)
   const [saveStatus, setSaveStatus] = useState('idle')
+  const [confirmDelete, setConfirmDelete] = useState(false)
 
   useEffect(() => {
     setBody(note?.body || '')
     setSaveStatus('idle')
+    setConfirmDelete(false)
   }, [selectedDate])
 
   const isDirty = body.trim() !== (note?.body?.trim() || '')
@@ -778,6 +780,13 @@ export function ParentNoteSection({ note, selectedDate, onSave }) {
     } finally {
       setIsSaving(false)
     }
+  }
+
+  function handleDelete() {
+    onDelete?.(note.id)
+    setBody('')
+    setSaveStatus('idle')
+    setConfirmDelete(false)
   }
 
   return (
@@ -806,9 +815,32 @@ export function ParentNoteSection({ note, selectedDate, onSave }) {
           <span style={{ fontWeight: 700, fontSize: 15, color: 'var(--coral)', fontFamily: "'Lato', sans-serif" }}>
             Parent Note
           </span>
-          {isRead && (
-            <span style={{ fontSize: 11, color: 'var(--mint)', fontWeight: 500 }}>✓ Clinician read</span>
-          )}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            {isRead && (
+              <span style={{ fontSize: 11, color: 'var(--mint)', fontWeight: 500 }}>✓ Clinician read</span>
+            )}
+            {onDelete && note?.id && (
+              confirmDelete ? (
+                <span style={{ fontSize: 11, color: 'var(--text-light)', whiteSpace: 'nowrap' }}>
+                  Delete this note?{' '}
+                  <button
+                    onClick={handleDelete}
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--pink)', fontWeight: 700, fontSize: 11, padding: 0, fontFamily: 'inherit' }}
+                  >Yes</button>
+                  {' / '}
+                  <button
+                    onClick={() => setConfirmDelete(false)}
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-light)', fontSize: 11, padding: 0, fontFamily: 'inherit' }}
+                  >Cancel</button>
+                </span>
+              ) : (
+                <button
+                  onClick={() => setConfirmDelete(true)}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-light)', fontSize: 11, padding: 0, fontFamily: 'inherit' }}
+                >Delete note</button>
+              )
+            )}
+          </div>
         </div>
 
         {/* Ruled writing area */}
@@ -1230,7 +1262,7 @@ export function ClinicianNotesSidebar({
 // ─── Main view ────────────────────────────────────────────────────────────────
 
 export default function DailyView() {
-  const { clinicianNotes = [], parentNotes = [], clinicianNotesRead = {}, mealStatuses = {}, savedClinicianNotes = [], weekOffset = 0, setWeekOffset, saveParentNote, markClinicianNoteRead, saveClinicianNote, unsaveClinicianNote, clearAllSavedNotes, setMealStatus } = useOutletContext()
+  const { clinicianNotes = [], parentNotes = [], clinicianNotesRead = {}, mealStatuses = {}, savedClinicianNotes = [], weekOffset = 0, setWeekOffset, saveParentNote, deleteParentNote, markClinicianNoteRead, saveClinicianNote, unsaveClinicianNote, clearAllSavedNotes, setMealStatus } = useOutletContext()
   const [selectedDay, setSelectedDay] = useState(getTodayKey)
   const [activeDrag, setActiveDrag] = useState(null)
   const [selectedFood, setSelectedFood] = useState(null)
@@ -1619,6 +1651,7 @@ export default function DailyView() {
               const existing = parentNotes.find(n => n.date === selectedDate)
               return saveParentNote({ date: selectedDate, body, existingNoteId: existing?.id || null })
             }}
+            onDelete={deleteParentNote}
           />
 
           <p style={{

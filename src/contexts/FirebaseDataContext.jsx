@@ -82,6 +82,7 @@ export function FirebaseDataProvider({ children }) {
   const [clinicianNotesRead, setClinicianNotesRead]   = useState({})
   const [savedClinicianNotes, setSavedClinicianNotes] = useState([])
   const [hiddenClinicianNoteIds, setHiddenClinicianNoteIds] = useState([]) // dismissed-from-view, persisted
+  const [hiddenParentNoteIdsTree, setHiddenParentNoteIdsTree] = useState({}) // clinician-side: { patientUid: [noteId] }
   const [ownClinicianNotes, setOwnClinicianNotes]     = useState([])
   const [foodItems, setFoodItems]                     = useState([])
   const [familyCode, setFamilyCode]                   = useState(null)
@@ -116,6 +117,7 @@ export function FirebaseDataProvider({ children }) {
       setClinicianNotesRead({})
       setSavedClinicianNotes([])
       setHiddenClinicianNoteIds([])
+      setHiddenParentNoteIdsTree({})
       setOwnClinicianNotes([])
       setFoodItems([])
       setFamilyCode(null)
@@ -179,6 +181,13 @@ export function FirebaseDataProvider({ children }) {
     unsubs.push(onValue(ref(db, `${base}/hiddenClinicianNoteIds`), snap => {
       const val = snap.val()
       setHiddenClinicianNoteIds(val ? Object.keys(val) : [])
+    }))
+
+    unsubs.push(onValue(ref(db, `${base}/hiddenParentNoteIds`), snap => {
+      const val = snap.val() || {}
+      const out = {}
+      for (const [patientUid, ids] of Object.entries(val)) out[patientUid] = Object.keys(ids || {})
+      setHiddenParentNoteIdsTree(out)
     }))
 
     unsubs.push(onValue(ref(db, `${base}/clinicianNotes`), snap => {
@@ -314,6 +323,7 @@ export function FirebaseDataProvider({ children }) {
   const mealDistress           = deriveMealDistress(activeFbMealData)
   const activeParentNotesByDate = viewingPatientUid ? patientParentNotesByDate : parentNotesByDate
   const parentNotesArray       = Object.values(activeParentNotesByDate)
+  const hiddenParentNoteIds    = viewingPatientUid ? (hiddenParentNoteIdsTree[viewingPatientUid] || []) : []
   const prescribedSupplements  = viewingPatientUid ? patientPrescribedSupplements : ownPrescribedSupplements
   const clinicianNotes         = viewingPatientUid ? patientClinicianNotes : ownClinicianNotes
   const assignedChallenges     = viewingPatientUid ? patientAssignedChallenges : ownAssignedChallenges
@@ -399,6 +409,21 @@ export function FirebaseDataProvider({ children }) {
       : { id: crypto.randomUUID(), date, body, read_at: null, created_at: new Date().toISOString() }
     set(ref(db, `users/${uid}/parentNotes/${date}`), note)
     setParentNotesByDate(prev => ({ ...prev, [date]: note }))
+  }
+
+  // Real delete — only the parent can call this, and only for their own note.
+  // (A linked clinician's write access to parentNotes is locked to read_at-only
+  // by the security rules, so the clinician can never alter or erase this record.)
+  function deleteParentNote(noteId) {
+    if (!uid) return
+    const date = Object.keys(parentNotesByDate).find(d => parentNotesByDate[d]?.id === noteId)
+    if (!date) return
+    set(ref(db, `users/${uid}/parentNotes/${date}`), null)
+    setParentNotesByDate(prev => {
+      const next = { ...prev }
+      delete next[date]
+      return next
+    })
   }
 
   function markParentNoteReadById(noteId) {
@@ -556,6 +581,22 @@ export function FirebaseDataProvider({ children }) {
     set(ref(db, `users/${uid}/hiddenClinicianNoteIds/${noteId}`), null)
   }
 
+  // Clinician-side dismissal of a parent note from their own view — not a real
+  // delete (the security rules already prevent a clinician from altering or
+  // erasing a parent's note), just hides it from this clinician's list.
+  // Persisted per-patient on the clinician's own tree so it survives reload.
+  // Keyed by date, not note id — parentNotes are one-per-date in Firebase and
+  // older/manually-seeded notes aren't guaranteed to have an id.
+  function hideParentNote(noteDate) {
+    if (!uid || !viewingPatientUid || !noteDate) return
+    set(ref(db, `users/${uid}/hiddenParentNoteIds/${viewingPatientUid}/${noteDate}`), true)
+  }
+
+  function unhideParentNote(noteDate) {
+    if (!uid || !viewingPatientUid || !noteDate) return
+    set(ref(db, `users/${uid}/hiddenParentNoteIds/${viewingPatientUid}/${noteDate}`), null)
+  }
+
   function writeClinicianNote({ body, existingNoteId }) {
     if (!viewingPatientUid) return
     // The patientClinicianNotes onValue listener full-replaces the list from
@@ -669,8 +710,12 @@ export function FirebaseDataProvider({ children }) {
       parentNotesByDate,
       parentNotesArray,
       saveParentNote,
+      deleteParentNote,
       markParentNoteReadById,
       markPatientParentNoteReadById,
+      hiddenParentNoteIds,
+      hideParentNote,
+      unhideParentNote,
       mealTimesByDate,
       activeMealTimesByDate,
       updateMealTime,

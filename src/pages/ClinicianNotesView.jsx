@@ -6,6 +6,9 @@ export default function ClinicianNotesView() {
   const {
     parentNotesArray: parentNotes,
     markPatientParentNoteReadById,
+    hiddenParentNoteIds,
+    hideParentNote,
+    unhideParentNote,
     clinicianNotesRead,
     clinicianNotes,
     writeClinicianNote,
@@ -20,7 +23,13 @@ export default function ClinicianNotesView() {
     <>
       <RevealSection eyebrow="Parent notes">
         <SectionCard>
-          <ParentNotesPanel notes={parentNotes} onMarkRead={markPatientParentNoteReadById} />
+          <ParentNotesPanel
+            notes={parentNotes}
+            onMarkRead={markPatientParentNoteReadById}
+            hiddenNoteIds={hiddenParentNoteIds}
+            onHideNote={hideParentNote}
+            onUnhideNote={unhideParentNote}
+          />
         </SectionCard>
       </RevealSection>
 
