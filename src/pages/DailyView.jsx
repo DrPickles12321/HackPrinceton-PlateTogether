@@ -966,14 +966,20 @@ export function ClinicianNotesSidebar({
   const [showHidden, setShowHidden] = useState(false)
   const [expandedNoteId, setExpandedNoteId] = useState(null)
   const [confirmClear, setConfirmClear] = useState(false)
+  const [confirmHideLatest, setConfirmHideLatest] = useState(false)
 
   useEffect(() => {
     if (savedClinicianNotes.length === 0) { setShowSaved(false); setConfirmClear(false) }
   }, [savedClinicianNotes.length])
 
   const today = localIsoDate()
-  const todayNote = clinicianNotes.find(n => n.created_at && localIsoDate(new Date(n.created_at)) === today)
-  const latest = todayNote || clinicianNotes[0] || null
+  // Hidden notes never surface as "latest" — otherwise dismissing the
+  // featured note would leave it right back on screen.
+  const visibleNotes = clinicianNotes.filter(n => !hiddenNoteIds.includes(n.id))
+  const todayNote = visibleNotes.find(n => n.created_at && localIsoDate(new Date(n.created_at)) === today)
+  const latest = todayNote || visibleNotes[0] || null
+
+  useEffect(() => { setConfirmHideLatest(false) }, [latest?.id])
 
   const noteDate = latest?.created_at?.slice(0, 10)
   const directRead = latest ? clinicianNotesRead[latest.id] : null
@@ -1081,6 +1087,32 @@ export function ClinicianNotesSidebar({
                 fontFamily: "'Lato', sans-serif",
               }}
             >{isSaved ? '🔖 Saved' : 'Save 🔖'}</button>
+            {onHideNote && (
+              confirmHideLatest ? (
+                <span style={{ fontSize: 10, color: 'var(--text-light)', whiteSpace: 'nowrap' }}>
+                  Hide?{' '}
+                  <button
+                    onClick={() => { onHideNote(latest.id); setConfirmHideLatest(false) }}
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--pink)', fontWeight: 700, fontSize: 10, padding: 0, fontFamily: 'inherit' }}
+                  >Yes</button>
+                  {' / '}
+                  <button
+                    onClick={() => setConfirmHideLatest(false)}
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-light)', fontSize: 10, padding: 0, fontFamily: 'inherit' }}
+                  >Cancel</button>
+                </span>
+              ) : (
+                <button
+                  onClick={() => setConfirmHideLatest(true)}
+                  title="Remove from this list"
+                  style={{
+                    background: 'none', border: '1px solid var(--border-mid)',
+                    borderRadius: 20, padding: '3px 9px', fontSize: 10, fontWeight: 600,
+                    color: 'var(--text-light)', cursor: 'pointer', fontFamily: "'Lato', sans-serif",
+                  }}
+                >Hide</button>
+              )
+            )}
           </div>
         )}
 
